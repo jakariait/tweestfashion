@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#000000" />
+    <title>Yarnfit</title>
+    <meta
+      name="description"
+      content="Shop the latest collection of clothing and accessories."
+    />
+
+    <link
+      rel="preload"
+      href="/fonts/92zPtBhPNqw79Ij1E865zBUv7myjJTVBNIg.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/src/index.css"
+      as="style"
+      onload="
+        this.onload = null;
+        this.rel = 'stylesheet';
+      "
+    />
+    <link
+      rel="preload"
+      href="/src/assets/fonts.css"
+      as="style"
+      onload="
+        this.onload = null;
+        this.rel = 'stylesheet';
+      "
+    />
+    <noscript><link rel="stylesheet" href="/src/assets/fonts.css" /></noscript>
+
+    <link
+      rel="preconnect"
+      href="https://ecommerce-server.digiwebdigital.com"
+      crossorigin
+    />
+    <link
+      rel="dns-prefetch"
+      href="https://ecommerce-server.digiwebdigital.com"
+    />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+
+    <noscript><link rel="stylesheet" href="/src/index.css" /></noscript>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
