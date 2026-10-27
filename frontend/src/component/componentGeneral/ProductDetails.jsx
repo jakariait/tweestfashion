@@ -248,7 +248,7 @@ const ProductDetails = () => {
           <meta property="og:url" content={window.location.href} />
           <link
             rel="canonical"
-            href={`https://ecommerce.digiwebdigital.com/product/${slug}`}
+            href={`https://tweestfashion.com/product/${slug}`}
           />
 
           {/*BreadCrumbs*/}

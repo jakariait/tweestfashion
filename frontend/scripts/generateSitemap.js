@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const API_URL = process.env.VITE_API_URL;
-const FRONTEND_URL = 'https://ecommerce.digiwebdigital.com';
+const FRONTEND_URL = 'https://tweestfashion.com';
 
 const generateRobotsTxt = () => {
   const robotsTxt = `User-agent: *
