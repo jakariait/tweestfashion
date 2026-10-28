@@ -7,6 +7,15 @@ const AddressForm = ({ user, onAddressChange }) => {
     address: '',
     email: '',
   });
+  const [phoneError, setPhoneError] = useState('');
+
+  const validatePhone = (phone) => {
+    if (!phone) return 'Phone number is required';
+    if (phone.length >= 2 && !phone.startsWith('01'))
+      return 'Phone number must start with 01';
+    if (phone.length !== 11) return 'Phone number must be 11 digits';
+    return '';
+  };
 
   useEffect(() => {
     if (user) {
@@ -21,6 +30,8 @@ const AddressForm = ({ user, onAddressChange }) => {
 
   // Send initial data on load (after the initial render and potential user prop update)
   useEffect(() => {
+    const error = validatePhone(formData.phone);
+    setPhoneError(error);
     onAddressChange(formData);
   }, [formData, onAddressChange]);
 
@@ -38,6 +49,11 @@ const AddressForm = ({ user, onAddressChange }) => {
       const newData = { ...prev, [name]: newValue };
       return newData;
     });
+
+    if (name === 'phone') {
+      const error = validatePhone(newValue);
+      setPhoneError(error);
+    }
   };
 
   return (
@@ -78,6 +94,9 @@ const AddressForm = ({ user, onAddressChange }) => {
           value={formData.phone}
           onChange={handleChange}
         />
+        {phoneError && (
+          <p className="text-red-600 text-xs mt-1">{phoneError}</p>
+        )}
       </div>
 
       {/* Address */}

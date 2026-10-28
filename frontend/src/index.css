@@ -300,3 +300,28 @@
 html {
   scroll-behavior: smooth; /* Smooth scrolling globally */
 }
+
+@keyframes codShimmer {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 140%;
+  }
+}
+
+.cod-shimmer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -40%;
+  width: 40%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  pointer-events: none;
+  animation: codShimmer 3s ease-in-out infinite;
+}

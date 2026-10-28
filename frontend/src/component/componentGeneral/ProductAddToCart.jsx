@@ -1,16 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { FaPlus } from 'react-icons/fa6';
+import React, { useEffect, useState } from 'react';
+import { FaPlus, FaArrowRight } from 'react-icons/fa6';
 import { FiMinus } from 'react-icons/fi';
 import { FaTruck } from 'react-icons/fa';
 
 import { useNavigate } from 'react-router-dom';
 import useCartStore from '../../store/useCartStore.js';
 import WishlistButton from './WishlistButton.jsx';
+import OrderByPhoneWhatsapp from './OrderByPhoneWhatsapp.jsx';
 import sanitizeHtml from '../../utils/sanitizeHtml.js';
-import ProductBrand from '@/component/componentGeneral/ProductBrand.jsx';
-import OrderByPhoneWhatsapp from '@/component/componentGeneral/OrderByPhoneWhatsapp.jsx';
 
-const ProductAddToCart = ({ product, onVariantChange, onAddToCart }) => {
+const ProductAddToCart = ({ product }) => {
   const [quantity, setQuantity] = useState(1);
   const MAX_QUANTITY = 5; // Set the limit for Cart Quantity
   const { addToCart } = useCartStore();
@@ -20,15 +19,6 @@ const ProductAddToCart = ({ product, onVariantChange, onAddToCart }) => {
   const [selectedOptions, setSelectedOptions] = useState({});
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [validationMessage, setValidationMessage] = useState(''); // New state for validation messages
-
-  // Optional parent hook so e.g. the gallery can react to variant changes
-  const handleVariantChange = useCallback(
-    (variant) => {
-      setSelectedVariant(variant);
-      onVariantChange?.(variant);
-    },
-    [onVariantChange],
-  );
 
   // Effect 1: Initialize selectedOptions and handle single variant product auto-selection
   useEffect(() => {
@@ -44,17 +34,17 @@ const ProductAddToCart = ({ product, onVariantChange, onAddToCart }) => {
         }
       });
       setSelectedOptions(initialSelected);
-      handleVariantChange(singleVariant);
+      setSelectedVariant(singleVariant);
     } else {
-      handleVariantChange(null);
+      setSelectedVariant(null);
     }
-  }, [product, handleVariantChange]);
+  }, [product]);
 
   // Effect 2: Main logic for updating options and variant selection
   useEffect(() => {
     if (!product || !product.variants || product.variants.length === 0) {
       setOptions([]);
-      handleVariantChange(null);
+      setSelectedVariant(null);
       return;
     }
 
@@ -151,13 +141,13 @@ const ProductAddToCart = ({ product, onVariantChange, onAddToCart }) => {
           ),
         ),
       );
-      handleVariantChange(newVariant);
+      setSelectedVariant(newVariant);
       setValidationMessage(''); // Clear validation message
     } else {
-      handleVariantChange(null);
+      setSelectedVariant(null);
       setValidationMessage('Please select all variant options.'); // Set validation message
     }
-  }, [product, selectedOptions, handleVariantChange]);
+  }, [product, selectedOptions]);
 
   const handleOptionChange = (optionName, value) => {
     const allOptionNames = options.map((o) => o.name);
@@ -174,7 +164,7 @@ const ProductAddToCart = ({ product, onVariantChange, onAddToCart }) => {
     setValidationMessage(''); // Clear message on selection change
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = (e) => {
     if (product.variants?.length > 0 && !selectedVariant) {
       const requiredOptions = options.map((o) => o.name);
       const missingOptions = requiredOptions.filter(
@@ -189,7 +179,6 @@ const ProductAddToCart = ({ product, onVariantChange, onAddToCart }) => {
     }
     addToCart(product, quantity, selectedVariant);
     setValidationMessage(''); // Clear message on success
-    onAddToCart?.();
 
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({
@@ -247,208 +236,230 @@ const ProductAddToCart = ({ product, onVariantChange, onAddToCart }) => {
 
   const variantForPrice = selectedVariant || product.variants?.[0];
 
-  const unitPrice =
-    variantForPrice?.discount > 0
-      ? variantForPrice.discount
-      : variantForPrice?.price || product.finalDiscount || product.finalPrice;
-  const orderTotal = Number(unitPrice || 0) * quantity;
+  const orderTotal =
+    (selectedVariant?.discount > 0
+      ? selectedVariant.discount
+      : selectedVariant?.price
+        ? selectedVariant.price
+        : product.finalDiscount > 0
+          ? product.finalDiscount
+          : product.finalPrice) * quantity;
 
   return (
-    <div>
-      <div>
-        <div className="flex flex-col gap-1.5 md:gap-3 pt-1 md:pt-0">
-          {/*Brand  Button*/}
-          <div className={'flex justify-between items-center'}>
-            <ProductBrand product={product} />
-          </div>
-          <h2 className="text-xl leading-tight">{product.name}</h2>
-          <div className="flex text-center flex-col gap-1 md:gap-2">
-            {/* Without Variant Price Display */}
-            {!product.variants?.length && (
-              <div className="flex gap-2 items-center">
-                {product.finalDiscount > 0 ? (
-                  <>
-                    <div className="line-through">
-                      Tk. {formatPrice(Number(product.finalPrice))}
-                    </div>
-                    <div className="text-red-800">
-                      Tk. {formatPrice(Number(product.finalDiscount))}
-                    </div>
-                    <div className="hidden sm:block">
-                      You Save: Tk{' '}
-                      {formatPrice(
-                        Number(product.finalPrice - product.finalDiscount),
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-black font-medium">
-                    Tk. {formatPrice(Number(product.finalPrice))}
-                  </div>
-                )}
-              </div>
-            )}
+    <div className="flex flex-col gap-4 pt-1 md:pt-0">
+      <h2 className="text-lg md:text-2xl font-semibold leading-tight text-gray-900">
+        {product.name}
+      </h2>
 
-            {/*With Variant Price Display */}
-            {variantForPrice && (
-              <div className="flex gap-1 md:gap-2 flex-wrap">
-                {variantForPrice.discount > 0 ? (
-                  <>
-                    <div className="line-through ">
-                      Tk. {formatPrice(Number(variantForPrice.price))}
-                    </div>
-                    <div className="text-red-800 ">
-                      Tk. {formatPrice(Number(variantForPrice.discount))}
-                    </div>
-                    <div className="hidden sm:block">
-                      You Save: Tk{' '}
-                      {formatPrice(
-                        Number(
-                          variantForPrice.price - variantForPrice.discount,
-                        ),
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-black">
-                    Tk. {formatPrice(Number(variantForPrice.price))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {product.freeShipping && (
-              <p className="text-[#2E7D31] flex gap-1 items-center text-xs">
-                <FaTruck className="rotate-y-180 shrink-0" />
-                <span className="font-bold">Free Shipping</span>
-                <span className="hidden sm:inline">on this product</span>
-              </p>
-            )}
-          </div>
-
-          {!selectedVariant && product.variants?.length > 0 && (
-            <div className=" text-red-500">
-              {validationMessage || 'Select options to see price.'}{' '}
-            </div>
-          )}
-
-          {options.map((option) => (
-            <div key={option.name} className={'flex flex-col gap-1'}>
-              <h2 className="font-semibold">{option.name} :</h2>
-              <div className="flex gap-2 flex-wrap ">
-                {option.values.map(({ value, available }) => (
-                  <button
-                    key={value}
-                    onClick={() => handleOptionChange(option.name, value)}
-                    disabled={!available}
-                    className={`px-2 py-0.5 rounded  transition-all duration-200 ${
-                      selectedOptions[option.name] === value
-                        ? 'primaryBgColor text-white'
-                        : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                    } ${!available ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-
-          <div className={'flex flex-wrap gap-2 md:gap-4 items-center mt-2'}>
-            <div
-              className={'rounded flex items-center justify-between shrink-0'}
-            >
-              <button
-                className={
-                  'primaryBgColor accentTextColor px-2 py-2 md:py-3 rounded-l cursor-pointer'
-                }
-                onClick={() => handleQuantityChange('decrease')}
-                disabled={
-                  product.variants?.length > 0 &&
-                  (!selectedVariant || selectedVariant.stock === 0)
-                }
-              >
-                <FiMinus />
-              </button>
-              <span className={'px-3 py-1 md:py-2 bg-gray-200'}>
-                {quantity}
-              </span>
-              <button
-                className={
-                  'primaryBgColor accentTextColor px-2 py-2 md:py-3 rounded-r cursor-pointer'
-                }
-                onClick={() => handleQuantityChange('increase')}
-                disabled={
-                  (product.variants?.length > 0 && !selectedVariant) ||
-                  quantity >= MAX_QUANTITY ||
-                  selectedVariant?.stock === 0
-                }
-              >
-                <FaPlus />
-              </button>
-            </div>
-            {selectedVariant?.stock === 0 ? (
-              <button className="text-red-600 w-44 font-semibold" disabled>
-                Stock Out
-              </button>
+      {/* Price */}
+      <div className="flex flex-col gap-1.5">
+        {!product.variants?.length && (
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {product.finalDiscount > 0 ? (
+              <>
+                <span className="text-2xl md:text-3xl font-extrabold text-[#2E7D31] tabular-nums">
+                  Tk. {formatPrice(Number(product.finalDiscount))}
+                </span>
+                <span className="text-sm md:text-base text-gray-400 line-through tabular-nums">
+                  Tk. {formatPrice(Number(product.finalPrice))}
+                </span>
+                <span className="rounded-full bg-[#2E7D31]/10 px-2.5 py-0.5 text-xs font-semibold text-[#2E7D31]">
+                  Save Tk{' '}
+                  {formatPrice(
+                    Number(product.finalPrice - product.finalDiscount),
+                  )}
+                </span>
+              </>
             ) : (
-              <button
-                className="primaryBgColor accentTextColor px-2 py-1 md:py-2 rounded flex-1 min-w-[120px] cursor-pointer"
-                onClick={handleAddToCart}
-              >
-                ADD TO CART
-              </button>
+              <span className="text-2xl md:text-3xl font-extrabold text-gray-900 tabular-nums">
+                Tk. {formatPrice(Number(product.finalPrice))}
+              </span>
             )}
-            <WishlistButton
-              product={product}
-              className={'primaryBgColor accentTextColor px-2 py-1 shrink-0'}
-            />
           </div>
-          {selectedVariant?.stock !== 0 && (
-            <div className={'flex items-center justify-center'}>
-              <button
-                className="primaryBgColor flex-1   accentTextColor px-2 py-1 md:py-2 rounded cursor-pointer"
-                onClick={() => {
-                  if (product.variants?.length > 0 && !selectedVariant) {
-                    const requiredOptions = options.map((o) => o.name);
-                    const missingOptions = requiredOptions.filter(
-                      (opt) => !selectedOptions[opt],
-                    );
-                    if (missingOptions.length > 0) {
-                      setValidationMessage(
-                        `${missingOptions.join(' / ')} required!`,
-                      );
-                    } else if (product.variants?.length > 0) {
-                      setValidationMessage(
-                        'Please select all variant options.',
-                      );
-                    }
-                    return;
-                  }
-                  addToCart(product, quantity, selectedVariant);
-                  onAddToCart?.();
-                  navigate('/checkout');
-                  setValidationMessage('');
-                }}
-              >
-                Order With Cash On Delivery
-              </button>
-            </div>
+        )}
+
+        {variantForPrice && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {variantForPrice.discount > 0 ? (
+              <>
+                <span className="text-xl md:text-2xl font-extrabold text-[#2E7D31] tabular-nums">
+                  Tk. {formatPrice(Number(variantForPrice.discount))}
+                </span>
+                <span className="text-sm text-gray-400 line-through tabular-nums">
+                  Tk. {formatPrice(Number(variantForPrice.price))}
+                </span>
+                <span className="rounded-full bg-[#2E7D31]/10 px-2.5 py-0.5 text-xs font-semibold text-[#2E7D31]">
+                  Save Tk{' '}
+                  {formatPrice(
+                    Number(variantForPrice.price - variantForPrice.discount),
+                  )}
+                </span>
+              </>
+            ) : (
+              <span className="text-xl md:text-2xl font-extrabold text-gray-900 tabular-nums">
+                Tk. {formatPrice(Number(variantForPrice.price))}
+              </span>
+            )}
+          </div>
+        )}
+
+        {product.freeShipping && (
+          <p className="flex items-center gap-1.5 text-xs md:text-sm font-medium text-[#2E7D31]">
+            <FaTruck className="rotate-y-180 shrink-0" />
+            <span className="font-bold">Free Shipping</span>
+            <span className="hidden sm:inline text-[#2E7D31]/70">
+              on this product
+            </span>
+          </p>
+        )}
+      </div>
+
+      {/* Info chips */}
+      {(product.productCode || product.rewardPoints) && (
+        <div className="flex flex-wrap gap-2">
+          {product.productCode && (
+            <span className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs md:text-sm text-gray-700">
+              <strong>Code:</strong> {product.productCode}
+            </span>
+          )}
+          {product.rewardPoints && (
+            <span className="rounded-lg bg-[#F4FAF4] border border-[#2E7D31]/15 px-3 py-1.5 text-xs md:text-sm text-[#2E7D31]">
+              Earn {product.rewardPoints} points
+            </span>
           )}
         </div>
-      </div>
-      <div className={'flex pt-5 flex-col gap-1'}>
-        {product.productCode && (
-          <div className={'bg-gray-100 px-3 py-1.5 rounded text-sm'}>
-            <strong>Product Code:</strong> {product.productCode}
+      )}
+
+      {/* Variant options */}
+      {!selectedVariant && product.variants?.length > 0 && (
+        <div className="text-sm text-red-500">
+          {validationMessage || 'Select options to see price.'}
+        </div>
+      )}
+
+      {options.map((option) => (
+        <div key={option.name} className="flex flex-col gap-1.5">
+          <h3 className=" font-semibold uppercase tracking-wide text-gray-500">
+            {option.name}
+          </h3>
+          <div className="flex gap-2 flex-wrap">
+            {option.values.map(({ value, available }) => {
+              const isSelected = selectedOptions[option.name] === value;
+              return (
+                <button
+                  key={value}
+                  onClick={() => handleOptionChange(option.name, value)}
+                  disabled={!available}
+                  className={`rounded-full border px-3.5 py-1.5  font-medium transition-all duration-200 ${
+                    isSelected
+                      ? 'border-[#2E7D31] bg-[#2E7D31] text-white shadow-sm'
+                      : available
+                        ? 'border-gray-200 bg-white text-gray-700 hover:border-[#2E7D31]/50 hover:bg-[#F4FAF4]'
+                        : 'border-gray-100 bg-gray-50 text-gray-400 opacity-50 cursor-not-allowed'
+                  }`}
+                >
+                  {value}
+                </button>
+              );
+            })}
           </div>
+        </div>
+      ))}
+
+      {/* Quantity + Cart */}
+      <div className="flex flex-wrap gap-2.5 md:gap-3 items-center mt-1">
+        <div className="flex items-center rounded-xl border border-gray-200 bg-white overflow-hidden shrink-0">
+          <button
+            className="px-3 py-2.5 md:py-3 text-gray-600 hover:bg-[#F4FAF4] hover:text-[#2E7D31] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={() => handleQuantityChange('decrease')}
+            disabled={
+              product.variants?.length > 0 &&
+              (!selectedVariant || selectedVariant.stock === 0)
+            }
+            aria-label="Decrease quantity"
+          >
+            <FiMinus />
+          </button>
+          <span className="px-4 text-sm md:text-base font-semibold tabular-nums text-gray-900">
+            {quantity}
+          </span>
+          <button
+            className="px-3 py-2.5 md:py-3 text-gray-600 hover:bg-[#F4FAF4] hover:text-[#2E7D31] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={() => handleQuantityChange('increase')}
+            disabled={
+              (product.variants?.length > 0 && !selectedVariant) ||
+              quantity >= MAX_QUANTITY ||
+              selectedVariant?.stock === 0
+            }
+            aria-label="Increase quantity"
+          >
+            <FaPlus />
+          </button>
+        </div>
+        {selectedVariant?.stock === 0 ? (
+          <button
+            className="flex-1 min-w-[140px] rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 md:py-3 text-sm md:text-base font-semibold text-red-600 cursor-not-allowed"
+            disabled
+          >
+            Stock Out
+          </button>
+        ) : (
+          <button
+            className="primaryBgColor accentTextColor flex-1 min-w-[140px] rounded-xl px-4 py-2.5 md:py-3 text-sm md:text-base font-semibold cursor-pointer transition-transform duration-200 hover:opacity-90 active:scale-[0.98]"
+            onClick={(e) => handleAddToCart(e)}
+          >
+            ADD TO CART
+          </button>
         )}
-        {product.rewardPoints && (
-          <div className={'bg-gray-100 px-3 py-1.5 rounded text-sm'}>
-            Purchase & Earn: {product.rewardPoints} points.
-          </div>
-        )}
+        <WishlistButton
+          product={product}
+          className={
+            'primaryBgColor accentTextColor rounded-xl px-3 py-2.5 shrink-0'
+          }
+        />
       </div>
+
+      {/* Order Now */}
+      {selectedVariant?.stock !== 0 && (
+        <button
+          type="button"
+          className="group relative w-full overflow-hidden primaryBgColor accentTextColor rounded-xl px-4 py-3 md:py-3.5 cursor-pointer text-left transition-transform duration-200 active:scale-[0.98] animate-cod-glow"
+          onClick={() => {
+            if (product.variants?.length > 0 && !selectedVariant) {
+              const requiredOptions = options.map((o) => o.name);
+              const missingOptions = requiredOptions.filter(
+                (opt) => !selectedOptions[opt],
+              );
+              if (missingOptions.length > 0) {
+                setValidationMessage(`${missingOptions.join(' / ')} required!`);
+              } else if (product.variants?.length > 0) {
+                setValidationMessage('Please select all variant options.');
+              }
+              return;
+            }
+            addToCart(product, quantity, selectedVariant);
+            navigate('/checkout');
+            setValidationMessage('');
+          }}
+        >
+          <span className="cod-shimmer" aria-hidden="true" />
+          <span className="relative z-10 flex items-center justify-between gap-3">
+            <span className="flex flex-col min-w-0">
+              <span className="text-base md:text-lg font-bold leading-tight">
+                Order Now
+              </span>
+              <span className="text-xs leading-tight opacity-85">
+                Cash on Delivery · Pay when you receive
+              </span>
+            </span>
+            <span className="flex items-center gap-2 shrink-0">
+              <span className="rounded-full  p-1.5 transition-transform duration-200 group-hover:translate-x-0.5">
+                <FaArrowRight className="text-xs md:text-sm" />
+              </span>
+            </span>
+          </span>
+        </button>
+      )}
 
       <OrderByPhoneWhatsapp
         product={product}

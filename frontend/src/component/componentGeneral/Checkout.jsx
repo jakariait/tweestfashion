@@ -195,6 +195,24 @@ const Checkout = () => {
       orderPayload.userId = user._id;
     }
 
+    // ---- Validate required fields and report exactly what is missing ----
+    const missing = [];
+    if (!addressData.fullName) missing.push('Full name is required');
+    if (!addressData.phone) missing.push('Phone number is required');
+    else if (addressData.phone.length !== 11 || !addressData.phone.startsWith('01')) {
+      missing.push('Phone number must be 11 digits starting with 01');
+    }
+    if (!addressData.address) missing.push('Address is required');
+    if (!selectedShipping.id) missing.push('Shipping method is required');
+    if (cart.length === 0) missing.push('Cart is empty');
+    if (!paymentMethod) missing.push('Payment method is required');
+
+    if (missing.length > 0) {
+      showSnackbar(missing[0] + '.', 'error');
+      setIsProcessingOrder(false);
+      return;
+    }
+
     // // ---- Handle bKash Checkout ----
     if (paymentMethod === 'bkash') {
       try {
@@ -399,7 +417,6 @@ const Checkout = () => {
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <Alert
-          onClose={handleCloseSnackbar}
           severity={snackbar.severity}
           sx={{ width: '100%' }}
         >
