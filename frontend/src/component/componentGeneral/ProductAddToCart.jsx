@@ -261,9 +261,7 @@ const ProductAddToCart = ({ product, onVariantChange, onAddToCart }) => {
           <div className={'flex justify-between items-center'}>
             <ProductBrand product={product} />
           </div>
-          <h2 className="text-base md:text-2xl leading-tight">
-            {product.name}
-          </h2>
+          <h2 className="text-xl leading-tight">{product.name}</h2>
           <div className="flex text-center flex-col gap-1 md:gap-2">
             {/* Without Variant Price Display */}
             {!product.variants?.length && (
@@ -320,30 +318,11 @@ const ProductAddToCart = ({ product, onVariantChange, onAddToCart }) => {
             )}
 
             {product.freeShipping && (
-              <p className="text-[#2E7D31] flex gap-1 items-center text-xs md:text-sm">
+              <p className="text-[#2E7D31] flex gap-1 items-center text-xs">
                 <FaTruck className="rotate-y-180 shrink-0" />
                 <span className="font-bold">Free Shipping</span>
                 <span className="hidden sm:inline">on this product</span>
               </p>
-            )}
-
-            {product.productCode && (
-              <div
-                className={
-                  'bg-gray-100 px-3 py-1.5 rounded text-sm md:text-base'
-                }
-              >
-                <strong>Product Code:</strong> {product.productCode}
-              </div>
-            )}
-            {product.rewardPoints && (
-              <div
-                className={
-                  'bg-gray-100 px-3 py-1.5 rounded text-sm md:text-base'
-                }
-              >
-                Purchase & Earn: {product.rewardPoints} points.
-              </div>
             )}
           </div>
 
@@ -355,16 +334,14 @@ const ProductAddToCart = ({ product, onVariantChange, onAddToCart }) => {
 
           {options.map((option) => (
             <div key={option.name} className={'flex flex-col gap-1'}>
-              <h2 className="text-sm md:text-lg font-semibold">
-                {option.name} :
-              </h2>
+              <h2 className="font-semibold">{option.name} :</h2>
               <div className="flex gap-2 flex-wrap ">
                 {option.values.map(({ value, available }) => (
                   <button
                     key={value}
                     onClick={() => handleOptionChange(option.name, value)}
                     disabled={!available}
-                    className={`px-2 py-0.5 md:px-3 md:py-1 rounded text-xs md:text-sm transition-all duration-200 ${
+                    className={`px-2 py-0.5 rounded  transition-all duration-200 ${
                       selectedOptions[option.name] === value
                         ? 'primaryBgColor text-white'
                         : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
@@ -459,6 +436,18 @@ const ProductAddToCart = ({ product, onVariantChange, onAddToCart }) => {
             </div>
           )}
         </div>
+      </div>
+      <div className={'flex pt-5 flex-col gap-1'}>
+        {product.productCode && (
+          <div className={'bg-gray-100 px-3 py-1.5 rounded text-sm'}>
+            <strong>Product Code:</strong> {product.productCode}
+          </div>
+        )}
+        {product.rewardPoints && (
+          <div className={'bg-gray-100 px-3 py-1.5 rounded text-sm'}>
+            Purchase & Earn: {product.rewardPoints} points.
+          </div>
+        )}
       </div>
 
       <OrderByPhoneWhatsapp

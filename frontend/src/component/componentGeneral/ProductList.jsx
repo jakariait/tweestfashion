@@ -141,8 +141,9 @@ const ProductList = ({ products }) => {
                   <FaEye aria-hidden="true" />
                 </button>
               </div>
-              <div className={'pt-5'}>
+              <div className={'grid grid-cols-2  gap-2 pt-5'}>
                 <BuyNowButton product={product} isAddToCart={false} />
+                <BuyNowButton product={product} isAddToCart={true} />
               </div>
             </div>
           ))}
