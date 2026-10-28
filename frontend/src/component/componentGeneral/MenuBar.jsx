@@ -76,7 +76,7 @@ const MenuBar = () => {
                     label={
                       <Link
                         to={categoryPath}
-                        className="items-center justify-center w-full text-left"
+                        className="flex gap-2 items-center justify-center w-full text-left"
                         onClick={(e) => {
                           // Prevent navigation if already on this category
                           if (isCurrentRoute(categoryQuery)) {
