@@ -58,7 +58,7 @@ const ProductList = ({ products }) => {
               <Link to={`/product/${product.slug}`} className="block">
                 <ImageComponent
                   imageName={product.thumbnailImage}
-                  className="w-full aspect-square object-cover"
+                  className="w-full  object-cover"
                   altName={product.name}
                   skeletonHeight={250}
                 />

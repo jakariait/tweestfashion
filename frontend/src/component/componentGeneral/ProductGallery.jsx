@@ -110,7 +110,7 @@ const ProductGallery = ({
                 <ImageComponent
                   imageName={images[index]}
                   altName={productName}
-                  className="w-full aspect-square object-cover"
+                  className="w-full  object-cover"
                   skeletonHeight={'400px'}
                 />
                 <button
@@ -127,7 +127,7 @@ const ProductGallery = ({
             <ImageComponent
               imageName={images[activeIndex]}
               altName={productName}
-              className="w-full aspect-square object-cover"
+              className="w-full object-cover"
               skeletonHeight={'200px'}
             />
           </div>
@@ -151,7 +151,7 @@ const ProductGallery = ({
                 <div
                   key={index}
                   ref={(el) => (thumbnailRefs.current[index] = el)}
-                  className={`cursor-pointer overflow-hidden transition-all duration-200 border-1 shrink-0 w-10 h-10 md:w-30 md:h-30 ${
+                  className={`cursor-pointer overflow-hidden transition-all duration-200 border-1 shrink-0 w-10  md:w-30 md:h-35 ${
                     activeIndex === index
                       ? 'primaryBorderColor scale-105'
                       : 'border-transparent opacity-80'
@@ -161,7 +161,7 @@ const ProductGallery = ({
                   <ImageComponent
                     imageName={images[index]}
                     altName={productName}
-                    className="w-full aspect-square object-cover"
+                    className="w-full  object-contain"
                     skeletonHeight={'200px'}
                   />
                 </div>

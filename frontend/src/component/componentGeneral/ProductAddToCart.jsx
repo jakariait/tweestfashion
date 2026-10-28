@@ -8,6 +8,7 @@ import useCartStore from '../../store/useCartStore.js';
 import WishlistButton from './WishlistButton.jsx';
 import OrderByPhoneWhatsapp from './OrderByPhoneWhatsapp.jsx';
 import sanitizeHtml from '../../utils/sanitizeHtml.js';
+import ProductBrand from '@/component/componentGeneral/ProductBrand.jsx';
 
 const ProductAddToCart = ({ product }) => {
   const [quantity, setQuantity] = useState(1);
@@ -247,6 +248,10 @@ const ProductAddToCart = ({ product }) => {
 
   return (
     <div className="flex flex-col gap-4 pt-1 md:pt-0">
+      {/*Product Brand*/}
+      <ProductBrand product={product} />
+
+      {/*Product Name*/}
       <h2 className="text-lg md:text-2xl font-semibold leading-tight text-gray-900">
         {product.name}
       </h2>
