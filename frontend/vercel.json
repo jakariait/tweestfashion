@@ -14,10 +14,6 @@
         {
           "key": "Strict-Transport-Security",
           "value": "max-age=31536000; includeSubDomains"
-        },
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' https://server.tweestfashion.com https://www.googletagmanager.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://server.tweestfashion.com; font-src 'self' data: https://fonts.gstatic.com; frame-src https://www.youtube.com https://www.google.com https://www.bkash.com; connect-src 'self' https://server.tweestfashion.com; media-src 'self'; manifest-src 'self';"
         }
       ]
     }

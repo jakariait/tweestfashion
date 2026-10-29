@@ -1,43 +1,11 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
-
-  function cspPlugin() {
-    return {
-      name: 'csp-inject',
-      transformIndexHtml(html) {
-        const apiUrl = env.VITE_API_URL || 'http://localhost:5050/api';
-        let backendOrigin = 'http://localhost:5050';
-        try {
-          backendOrigin = new URL(apiUrl).origin;
-        } catch {}
-
-        const csp = [
-          "default-src 'self'",
-          `script-src 'self' ${backendOrigin} https://www.googletagmanager.com 'unsafe-inline'`,
-          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-          `img-src 'self' data: blob: ${backendOrigin}`,
-          "font-src 'self' data: https://fonts.gstatic.com",
-          'frame-src https://www.youtube.com https://www.google.com',
-          `connect-src 'self' ${backendOrigin}`,
-          "media-src 'self'",
-          "manifest-src 'self'",
-        ].join('; ');
-
-        return html.replace(
-          '</head>',
-          `  <meta http-equiv="Content-Security-Policy" content="${csp}">\n</head>`,
-        );
-      },
-    };
-  }
-
+export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss(), cspPlugin()],
+    plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
