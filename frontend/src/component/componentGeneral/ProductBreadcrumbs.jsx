@@ -11,7 +11,7 @@ import { Link as RouterLink } from 'react-router-dom';
 
 export default function ProductBreadcrumbs({ product }) {
   return (
-    <div className="px-4 py-3 md:px-6 overflow-x-auto scrollbar-none">
+    <div className="px-4 py-3 md:px-6 overflow-x-auto scrollbar-hide">
       <Breadcrumb>
         <BreadcrumbList className="flex-nowrap whitespace-nowrap">
           <BreadcrumbItem>

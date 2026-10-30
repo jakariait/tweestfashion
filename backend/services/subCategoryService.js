@@ -1,4 +1,5 @@
 const SubCategory = require('../models/SubCategoryModel');
+const ProductModel = require('../models/ProductModel');
 const CounterModel = require('../models/CategoryCounterModel');
 const slugify = require('slugify');
 
@@ -27,7 +28,20 @@ const createSubCategory = async (subCategoryData) => {
 // Get all subcategories
 const getAllSubCategories = async () => {
   try {
-    return await SubCategory.find().populate('category', 'name').select('-createdAt -updatedAt');
+    const [subCategories, counts] = await Promise.all([
+      SubCategory.find().populate('category', 'name').select('-createdAt -updatedAt').lean(),
+      ProductModel.aggregate([
+        { $match: { isActive: true, subCategory: { $ne: null } } },
+        { $group: { _id: '$subCategory', count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const countMap = new Map(counts.map((c) => [String(c._id), c.count]));
+
+    return subCategories.map((subCategory) => ({
+      ...subCategory,
+      productsCount: countMap.get(String(subCategory._id)) || 0,
+    }));
   } catch (error) {
     throw new Error('Error fetching subcategories: ' + error.message);
   }

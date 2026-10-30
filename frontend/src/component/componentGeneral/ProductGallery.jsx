@@ -162,7 +162,7 @@ const ProductGallery = ({
                     imageName={images[index]}
                     altName={productName}
                     className="w-full  object-contain"
-                    skeletonHeight={'200px'}
+                    skeletonHeight={'100px'}
                   />
                 </div>
               ))}

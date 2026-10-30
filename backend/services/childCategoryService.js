@@ -1,4 +1,5 @@
 const ChildCategory = require('../models/ChildCategoryModel');
+const ProductModel = require('../models/ProductModel');
 
 // Create a new child category
 const createChildCategory = async (childCategoryData) => {
@@ -18,12 +19,24 @@ const createChildCategory = async (childCategoryData) => {
 // Get all child categories
 const getAllChildCategories = async () => {
   try {
-    const childCategories = await ChildCategory.find()
-      .populate('category', 'name')
-      .populate('subCategory', 'name')
-      .select('-createdAt -updatedAt')
-      .exec();
-    return childCategories;
+    const [childCategories, counts] = await Promise.all([
+      ChildCategory.find()
+        .populate('category', 'name')
+        .populate('subCategory', 'name')
+        .select('-createdAt -updatedAt')
+        .lean(),
+      ProductModel.aggregate([
+        { $match: { isActive: true, childCategory: { $ne: null } } },
+        { $group: { _id: '$childCategory', count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const countMap = new Map(counts.map((c) => [String(c._id), c.count]));
+
+    return childCategories.map((childCategory) => ({
+      ...childCategory,
+      productsCount: countMap.get(String(childCategory._id)) || 0,
+    }));
   } catch (error) {
     throw new Error('Error fetching child categories: ' + error.message);
   }

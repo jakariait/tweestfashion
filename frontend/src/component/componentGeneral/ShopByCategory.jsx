@@ -40,9 +40,13 @@ const ShopByCategory = () => {
           axios.get(`${apiUrl}/child-category`),
         ]);
         const allCats =
-          catRes.status === 'fulfilled' ? catRes.value.data.categories || [] : [];
+          catRes.status === 'fulfilled'
+            ? catRes.value.data.categories || []
+            : [];
         const allSubs =
-          subRes.status === 'fulfilled' ? subRes.value.data.subCategories || [] : [];
+          subRes.status === 'fulfilled'
+            ? subRes.value.data.subCategories || []
+            : [];
         const allChildren =
           childRes.status === 'fulfilled'
             ? childRes.value.data.childCategories || []
@@ -141,10 +145,7 @@ const ShopByCategory = () => {
   );
 
   const shopAllCard = (
-    <Link
-      to="/shop"
-      className={cardClass}
-    >
+    <Link to="/shop" className={cardClass}>
       <span className="pointer-events-none absolute inset-0 z-20 rounded-2xl opacity-0 ring-1 ring-inset ring-[var(--primaryColor)]/25 transition-opacity duration-300 group-hover:opacity-100" />
 
       <div className="relative w-full overflow-hidden">
