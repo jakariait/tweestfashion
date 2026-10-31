@@ -27,7 +27,7 @@ const MarqueeModern = () => {
   if (messages.length === 0) return null;
 
   return (
-    <div className="w-full overflow-hidden secondaryBgColor py-3">
+    <div className="w-full overflow-hidden primaryBgColor py-3">
       <div className="marquee-track flex gap-12 whitespace-nowrap text-white text-sm sm:text-base font-medium animate-marquee">
         {[...messages, ...messages].map((msg, index) => (
           <span key={index}>{msg}</span>

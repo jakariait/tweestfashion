@@ -40,11 +40,6 @@ const createChildCategory = async (req, res) => {
 const getAllChildCategories = async (req, res) => {
   try {
     const childCategories = await childCategoryService.getAllChildCategories();
-    if (!childCategories || childCategories.length === 0) {
-      return res.status(404).json({
-        message: 'No child categories found',
-      });
-    }
     res.status(200).json({
       message: 'Child categories fetched successfully',
       childCategories,

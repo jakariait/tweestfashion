@@ -81,8 +81,12 @@ const ChildCategoryAllinone = () => {
         setChildCategories(res.data.childCategories || []);
         setLoading(false);
       })
-      .catch(() => {
-        toast.error('Error fetching child categories.');
+      .catch((err) => {
+        if (err.response?.status === 404) {
+          setChildCategories([]);
+        } else {
+          toast.error('Error fetching child categories.');
+        }
         setLoading(false);
       });
   }, [apiUrl, token]);
