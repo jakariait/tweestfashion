@@ -10,10 +10,24 @@ const createSteadfastOrder = async (req, res) => {
     const response = await createSteadfastOrderService(req.body);
     res.status(200).json({ status: 'success', data: response });
   } catch (err) {
+    const rawData = err.response?.data;
+    let message = 'Something went wrong';
+    if (typeof rawData === 'string') {
+      message = rawData;
+    } else if (rawData) {
+      message =
+        rawData.message ||
+        rawData.data?.message ||
+        rawData.error ||
+        err.message ||
+        'Something went wrong';
+    } else {
+      message = err.message || 'Something went wrong';
+    }
     console.error('Steadfast order error:', err.response?.data || err.message);
     res.status(500).json({
       status: 'error',
-      message: err.response?.data?.message || 'Something went wrong',
+      message,
     });
   }
 };

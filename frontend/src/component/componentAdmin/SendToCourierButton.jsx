@@ -119,13 +119,15 @@ const SendToCourierButton = ({ orderData, onSuccess }) => {
           }
           toast.error(errorMessage);
         } else {
-          toast.warning('Unknown status received from the server.');
+          toast.warning(result.data?.message || 'Unknown status received from the server.');
         }
       } else {
-        toast.error('API call was not successful.');
+        toast.error(result.message || result.data?.message || 'API call was not successful.');
       }
     } catch (err) {
-      toast.error('Network error while sending order.');
+      const errorMessage =
+        err.response?.data?.message || err.message || 'Network error while sending order.';
+      toast.error(errorMessage);
       console.error(err);
     } finally {
       setLoading(false);
