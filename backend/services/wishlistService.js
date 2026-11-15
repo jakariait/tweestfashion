@@ -4,7 +4,20 @@ const ProductModel = require('../models/ProductModel');
 const getWishlist = async (userId) => {
   const wishlist = await WishlistModel.findOne({ user: userId }).populate({
     path: 'items.product',
-    select: 'name slug thumbnailImage finalPrice finalDiscount finalStock productCode variants',
+    select:
+      'name slug thumbnailImage finalPrice finalDiscount finalStock productCode isCombo comboProducts variants',
+    populate: [
+      { path: 'variants.attributes.option', select: 'name values' },
+      {
+        path: 'comboProducts',
+        select:
+          'name slug productId finalPrice finalDiscount finalStock thumbnailImage isActive variants',
+        populate: {
+          path: 'variants.attributes.option',
+          select: 'name values',
+        },
+      },
+    ],
   });
 
   if (!wishlist) {
@@ -37,7 +50,20 @@ const addToWishlist = async (userId, productId) => {
 
   return await WishlistModel.findOne({ user: userId }).populate({
     path: 'items.product',
-    select: 'name slug thumbnailImage finalPrice finalDiscount finalStock productCode variants',
+    select:
+      'name slug thumbnailImage finalPrice finalDiscount finalStock productCode isCombo comboProducts variants',
+    populate: [
+      { path: 'variants.attributes.option', select: 'name values' },
+      {
+        path: 'comboProducts',
+        select:
+          'name slug productId finalPrice finalDiscount finalStock thumbnailImage isActive variants',
+        populate: {
+          path: 'variants.attributes.option',
+          select: 'name values',
+        },
+      },
+    ],
   });
 };
 
@@ -59,7 +85,20 @@ const removeFromWishlist = async (userId, productId) => {
 
   return await WishlistModel.findOne({ user: userId }).populate({
     path: 'items.product',
-    select: 'name slug thumbnailImage finalPrice finalDiscount finalStock productCode variants',
+    select:
+      'name slug thumbnailImage finalPrice finalDiscount finalStock productCode isCombo comboProducts variants',
+    populate: [
+      { path: 'variants.attributes.option', select: 'name values' },
+      {
+        path: 'comboProducts',
+        select:
+          'name slug productId finalPrice finalDiscount finalStock thumbnailImage isActive variants',
+        populate: {
+          path: 'variants.attributes.option',
+          select: 'name values',
+        },
+      },
+    ],
   });
 };
 

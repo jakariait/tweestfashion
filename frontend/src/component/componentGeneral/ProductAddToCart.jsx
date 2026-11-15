@@ -769,7 +769,7 @@ const ProductAddToCart = ({ product }) => {
                         className="flex min-h-[108px] flex-col rounded-lg border border-[#2E7D31]/40 bg-white p-2"
                       >
                         <div className="flex items-start gap-2">
-                          <div className=" w-12 shrink-0 overflow-hidden rounded bg-gray-50">
+                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-gray-50">
                             {slotProduct.thumbnailImage ? (
                               <img
                                 src={`${imageUrl}/${slotProduct.thumbnailImage}`}
@@ -942,7 +942,7 @@ const ProductAddToCart = ({ product }) => {
                         onClick={() => handleComboPickerProductClick(item)}
                         className="group overflow-hidden rounded-lg border border-gray-200 bg-white text-left transition-colors hover:border-[#2E7D31]/60 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        <div className=" w-full overflow-hidden bg-gray-50">
+                        <div className="h-24 w-full overflow-hidden bg-gray-50">
                           {item.thumbnailImage ? (
                             <img
                               src={`${imageUrl}/${item.thumbnailImage}`}
@@ -952,7 +952,7 @@ const ProductAddToCart = ({ product }) => {
                           ) : null}
                         </div>
                         <div className="space-y-1 p-2">
-                          <p className="line-clamp-2 text-xs font-medium text-gray-900">
+                          <p className="line-clamp-2 break-words text-xs font-medium text-gray-900">
                             {item.name}
                           </p>
                           {isOutOfStock ? (
