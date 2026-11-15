@@ -8,6 +8,69 @@ const FreeDeliveryAmount = require('../models/FreeDeliveryAmount');
 const User = require('../models/UserModel');
 const Coupon = require('../models/CouponModel');
 
+// A combo product bundles other products. Its own stock is derived from them,
+// so every stock change on a combo item must be applied to the component
+// products too. `delta` follows the combo item's own quantity change:
+// negative deducts (order placed / qty increased), positive restores
+// (cancelled / returned / qty decreased / deleted).
+const adjustComboComponentsStock = async (item, delta) => {
+  const selections = Array.isArray(item.comboSelections) ? item.comboSelections : [];
+  if (delta === 0 || selections.length === 0) return;
+
+  // Group by component + variant so repeated picks of the same bundle item
+  // accumulate into one change instead of overwriting each other on save.
+  const pending = new Map();
+
+  for (const selection of selections) {
+    if (!selection?.productId) continue;
+
+    const variantId = selection.variantId ? String(selection.variantId) : 'Default';
+    const key = `${selection.productId}:${variantId}`;
+    const change = delta * Math.max(1, Number(selection.quantity) || 1);
+
+    let entry = pending.get(key);
+    if (!entry) {
+      const component = await Product.findById(selection.productId);
+      if (!component) continue;
+
+      let variant = null;
+      if (selection.variantId) {
+        variant =
+          component.variants.find(
+            (v) => v._id.toString() === String(selection.variantId)
+          ) || null;
+      }
+
+      // A variant was selected but no longer exists — leave its stock alone
+      if (selection.variantId && !variant) continue;
+      // No variant selected but the product is variant-based — nothing to adjust
+      if (!selection.variantId && component.variants.length > 0) continue;
+
+      entry = { component, variant, change: 0 };
+      pending.set(key, entry);
+    }
+
+    entry.change += change;
+  }
+
+  for (const { component, variant, change } of pending.values()) {
+    if (change === 0) continue;
+
+    const available = variant ? variant.stock : component.finalStock;
+    if (change < 0 && available < -change) {
+      throw new Error(`Not enough stock for ${component.name}`);
+    }
+    if (variant) variant.stock += change;
+    else component.finalStock += change;
+  }
+
+  await Promise.all(
+    [...pending.values()]
+      .filter((entry) => entry.change !== 0)
+      .map((entry) => entry.component.save())
+  );
+};
+
 const createOrder = async (orderData, userId) => {
   try {
     // Get user (optional for guests)
@@ -66,8 +129,22 @@ const createOrder = async (orderData, userId) => {
         await product.save();
       }
 
+      // A combo product bundles other products: the selected component
+      // variants also need their stock reduced by the ordered quantity.
+      if (product.isCombo) {
+        await adjustComboComponentsStock(item, -quantity);
+
+        // Recompute the combo's own stock from the now-updated components
+        await product.save();
+      }
+
       subtotal += price * quantity;
-      updatedItems.push({ productId, variantId, quantity, price }); // Store price for each item
+      const orderItem = { productId, variantId, quantity, price };
+      if (item.comboKey) orderItem.comboKey = item.comboKey;
+      if (Array.isArray(item.comboSelections) && item.comboSelections.length > 0) {
+        orderItem.comboSelections = item.comboSelections;
+      }
+      updatedItems.push(orderItem); // Store price for each item
     }
 
     // Handle shipping
@@ -340,6 +417,14 @@ const updateOrder = async (orderId, updateData) => {
           product.finalStock += quantityChange;
         }
 
+        // Keep the bundled products' stock in sync with a combo item, exactly
+        // like the combo product's own stock
+        if (product.isCombo) {
+          const comboItemForStock =
+            newItem?.comboSelections?.length > 0 ? newItem : oldItem;
+          await adjustComboComponentsStock(comboItemForStock, quantityChange);
+        }
+
         if (newItem) {
           subtotal += newItem.price * newItem.quantity;
         }
@@ -384,6 +469,10 @@ const updateOrder = async (orderId, updateData) => {
           } else {
             product.finalStock += quantity;
           }
+          // Restore the bundled products of a combo item as well
+          if (product.isCombo) {
+            await adjustComboComponentsStock(item, quantity);
+          }
           await product.save();
         }
       }
@@ -405,6 +494,10 @@ const updateOrder = async (orderId, updateData) => {
             }
           } else {
             product.finalStock -= quantity;
+          }
+          // Deduct the bundled products of a combo item again
+          if (product.isCombo) {
+            await adjustComboComponentsStock(item, -quantity);
           }
           await product.save();
         }
@@ -446,6 +539,11 @@ const deleteOrder = async (orderId) => {
       if (!product) {
         // Skip stock update if product not found, proceed with order deletion
         continue;
+      }
+
+      // Restore the bundled products of a combo item as well
+      if (product.isCombo) {
+        await adjustComboComponentsStock(item, quantity);
       }
 
       if (product.variants.length === 0) {

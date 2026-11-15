@@ -20,7 +20,8 @@ const addToCart = async (userId, item) => {
     const index = cart.items.findIndex(
       (i) =>
         i.productId?.toString() === item.productId?.toString() &&
-        (i.variantId === matchKey || i.variant === matchKey)
+        (i.variantId === matchKey || i.variant === matchKey) &&
+        (i.comboKey || '') === (item.comboKey || '')
     );
 
     if (index > -1) {

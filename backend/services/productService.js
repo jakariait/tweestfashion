@@ -82,7 +82,16 @@ const getProducts = async () => {
         { path: 'variants.attributes.option', select: '-createdAt -updatedAt' },
         {
           path: 'comboProducts',
-          select: 'name slug productId finalStock thumbnailImage',
+          select:
+            'name slug productId finalPrice finalDiscount finalStock thumbnailImage isActive variants',
+          // Bundled products are Products too, so their variant options must be
+          // populated on the comboProducts entry itself — a separate
+          // `comboProducts.variants...` populate does not resolve for this
+          // self-referencing path and leaves every option name undefined.
+          populate: {
+            path: 'variants.attributes.option',
+            select: 'name values',
+          },
         },
       ]);
 
@@ -106,7 +115,12 @@ const getProductById = async (productId) => {
       { path: 'variants.attributes.option', select: '-createdAt -updatedAt' },
       {
         path: 'comboProducts',
-        select: 'name slug productId finalStock thumbnailImage',
+        select:
+          'name slug productId finalPrice finalDiscount finalStock thumbnailImage isActive variants',
+        populate: {
+          path: 'variants.attributes.option',
+          select: 'name values',
+        },
       },
     ]);
     if (!product) throw new Error('Product not found');
@@ -129,7 +143,12 @@ const getProductBySlug = async (slug) => {
       { path: 'variants.attributes.option', select: '-createdAt -updatedAt' },
       {
         path: 'comboProducts',
-        select: 'name slug productId finalStock thumbnailImage',
+        select:
+          'name slug productId finalPrice finalDiscount finalStock thumbnailImage isActive variants',
+        populate: {
+          path: 'variants.attributes.option',
+          select: 'name values',
+        },
       },
     ]);
 
@@ -483,7 +502,12 @@ const getAllProducts = async ({
         { path: 'variants.attributes.option', select: '-createdAt -updatedAt' },
         {
           path: 'comboProducts',
-          select: 'name slug productId finalStock thumbnailImage',
+          select:
+            'name slug productId finalPrice finalDiscount finalStock thumbnailImage isActive variants',
+          populate: {
+            path: 'variants.attributes.option',
+            select: 'name values',
+          },
         },
       ]);
 

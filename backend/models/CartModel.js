@@ -19,6 +19,18 @@ const cartItemSchema = new mongoose.Schema({
   },
   thumbnail: String,
   slug: String,
+  // Present for combo products: the component variants the customer chose
+  comboKey: { type: String, default: '' },
+  comboSelections: [
+    {
+      _id: false,
+      productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+      variantId: String,
+      name: String,
+      variant: String,
+      quantity: { type: Number, default: 1, min: 1 },
+    },
+  ],
 });
 
 const cartSchema = new mongoose.Schema(

@@ -32,6 +32,8 @@ const useCartStore = create((set, get) => ({
         slug: item.slug,
         variantId: item.variantId || 'Default',
         freeShipping: item.freeShipping,
+        comboKey: item.comboKey || '',
+        comboSelections: item.comboSelections || [],
       }));
 
       saveCart(serverCartItems);
@@ -41,17 +43,52 @@ const useCartStore = create((set, get) => ({
     }
   },
 
-  addToCart: async (product, quantity, selectedVariant) => {
+  addToCart: async (
+    product,
+    quantity,
+    selectedVariant,
+    comboSelections = null,
+  ) => {
     // Extract variant name from attributes (e.g., "Size: L, Color: Red")
-    const variant = selectedVariant?.attributes
+    const mainVariant = selectedVariant?.attributes
       ? selectedVariant.attributes.map((attr) => `${attr.value}`).join(' / ')
-      : 'Default';
+      : '';
+    // Combo choices are part of the cart row label too, so rows with the same
+    // product but different bundled variants stay distinct everywhere.
+    const comboVariantLabel =
+      Array.isArray(comboSelections) && comboSelections.length > 0
+        ? comboSelections
+            .map(
+              (s) =>
+                `${s.name} (${s.variant || 'Default'}) x${s.quantity || 1}`,
+            )
+            .join(', ')
+        : '';
+    const variant =
+      [mainVariant, comboVariantLabel].filter(Boolean).join(' | ') ||
+      'Default';
     const variantId = selectedVariant?._id || 'Default';
+    // Selections made for the products bundled in a combo product. Two combos
+    // with different component variants must stay as separate cart rows.
+    const comboKey =
+      Array.isArray(comboSelections) && comboSelections.length > 0
+        ? comboSelections
+            .map(
+              (s) =>
+                `${s.productId}:${s.variantId || 'Default'}:${s.quantity || 1}`,
+            )
+            .sort()
+            .join('|')
+        : '';
+    const comboItems = Array.isArray(comboSelections) ? comboSelections : [];
     const token = localStorage.getItem('user_token');
 
     set((state) => {
       const existingIndex = state.cart.findIndex(
-        (item) => item.productId === product.id && item.variant === variant,
+        (item) =>
+          item.productId === product.id &&
+          item.variant === variant &&
+          (item.comboKey || '') === comboKey,
       );
 
       let updatedCart = [...state.cart];
@@ -81,6 +118,8 @@ const useCartStore = create((set, get) => ({
           variantId,
           slug: product.slug,
           freeShipping: product.freeShipping,
+          comboKey,
+          comboSelections: comboItems,
         });
       }
 
@@ -111,6 +150,8 @@ const useCartStore = create((set, get) => ({
             slug: product.slug,
             variantId,
             freeShipping: product.freeShipping,
+            comboKey,
+            comboSelections: comboItems,
           },
           { headers: { Authorization: `Bearer ${token}` } },
         );
@@ -206,6 +247,8 @@ const useCartStore = create((set, get) => ({
             slug: item.slug,
             variantId: item.variantId,
             freeShipping: item.freeShipping,
+            comboKey: item.comboKey || '',
+            comboSelections: item.comboSelections || [],
           },
           {
             headers: {

@@ -257,7 +257,14 @@ const ViewOrder = () => {
         shippingInfo: editableOrder.shippingInfo,
         billingInfo: editableOrder.billingInfo,
         items: editableOrder.items.map(
-          ({ productId, variantId, quantity, price }) => ({
+          ({
+            productId,
+            variantId,
+            quantity,
+            price,
+            comboKey,
+            comboSelections,
+          }) => ({
             productId:
               typeof productId === 'object' ? productId._id : productId,
             variantId:
@@ -266,6 +273,8 @@ const ViewOrder = () => {
                 : variantId,
             quantity,
             price,
+            comboKey: comboKey || '',
+            comboSelections: comboSelections || [],
           }),
         ),
       };
@@ -462,6 +471,24 @@ const ViewOrder = () => {
                       </TableCell>
                       <TableCell>
                         {variant ? getVariantDisplayName(variant) : 'N/A'}
+                        {item.comboSelections?.length > 0 && (
+                          <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                            {item.comboSelections.map((selection, sIndex) => (
+                              <li
+                                key={`${selection.productId || selection.variantId}-${sIndex}`}
+                              >
+                                {selection.name || 'Item'}
+                                {selection.variant &&
+                                selection.variant !== 'Default'
+                                  ? ` (${selection.variant})`
+                                  : ''}
+                                {Number(selection.quantity) > 1
+                                  ? ` × ${selection.quantity}`
+                                  : ''}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </TableCell>
                       <TableCell>
                         {isEditMode ? (

@@ -185,6 +185,10 @@ const Checkout = () => {
         if (item.variantId && item.variantId !== 'Default') {
           baseItem.variantId = item.variantId;
         }
+        if (item.comboSelections?.length > 0) {
+          baseItem.comboKey = item.comboKey || '';
+          baseItem.comboSelections = item.comboSelections;
+        }
         return baseItem;
       }),
       promoCode: appliedCoupon?.code || null,

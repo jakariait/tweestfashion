@@ -82,6 +82,17 @@ const orderSchema = new mongoose.Schema(
           min: [1, 'Quantity must be at least 1'],
         },
         price: { type: Number, required: true },
+        comboKey: { type: String, default: '' },
+        comboSelections: [
+          {
+            _id: false,
+            productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+            variantId: String,
+            name: String,
+            variant: String,
+            quantity: { type: Number, default: 1, min: 1 },
+          },
+        ],
       },
     ],
 

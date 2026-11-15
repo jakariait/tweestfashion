@@ -752,10 +752,32 @@ const ProductForm = ({ isEdit: isEditMode }) => {
   const getAttributeValueList = (attr) => {
     const selectedOption = productOptions.find((o) => o._id === attr.option);
     const values = (selectedOption?.values || [])
-      .map((v) =>
-        v && typeof v === 'object' ? String(v.value ?? '') : String(v ?? ''),
-      )
-      .filter(Boolean);
+      .map((v) => {
+        if (typeof v === 'string') {
+          return { value: v, numberOfProduct: 1 };
+        }
+        if (v && typeof v === 'object') {
+          if (v.value !== undefined) {
+            return {
+              value: String(v.value),
+              numberOfProduct: Number(v.numberOfProduct) || 1,
+            };
+          }
+          const legacyValue = Object.keys(v)
+            .filter((key) => /^\d+$/.test(key))
+            .sort((a, b) => Number(a) - Number(b))
+            .map((key) => v[key])
+            .join('');
+          if (legacyValue) {
+            return {
+              value: legacyValue,
+              numberOfProduct: Number(v.numberOfProduct) || 1,
+            };
+          }
+        }
+        return null;
+      })
+      .filter((v) => v?.value);
     const storedValue =
       attr.value != null
         ? String(
@@ -764,8 +786,8 @@ const ProductForm = ({ isEdit: isEditMode }) => {
               : attr.value,
           )
         : '';
-    if (storedValue && !values.includes(storedValue)) {
-      values.unshift(storedValue);
+    if (storedValue && !values.some((v) => v.value === storedValue)) {
+      values.unshift({ value: storedValue, numberOfProduct: 1 });
     }
     return values;
   };
@@ -1993,13 +2015,13 @@ const ProductForm = ({ isEdit: isEditMode }) => {
                                       className="border border-border/60 shadow-sm"
                                     >
                                       {getAttributeValueList(attr).map(
-                                        (val) => (
+                                        ({ value, numberOfProduct }) => (
                                           <SelectItem
-                                            key={val}
-                                            value={val}
+                                            key={value}
+                                            value={value}
                                             className="text-foreground"
                                           >
-                                            {val}
+                                            {value} ({numberOfProduct})
                                           </SelectItem>
                                         ),
                                       )}
