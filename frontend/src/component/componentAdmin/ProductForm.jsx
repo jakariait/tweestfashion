@@ -676,7 +676,11 @@ const ProductForm = ({ isEdit: isEditMode }) => {
   // deleted after the product was saved)
   const getAttributeValueList = (attr) => {
     const selectedOption = productOptions.find((o) => o._id === attr.option);
-    const values = [...(selectedOption?.values || [])];
+    const values = (selectedOption?.values || [])
+      .map((v) =>
+        v && typeof v === 'object' ? String(v.value ?? '') : String(v ?? ''),
+      )
+      .filter(Boolean);
     const storedValue =
       attr.value != null
         ? String(

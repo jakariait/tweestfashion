@@ -10,9 +10,16 @@ const productOptionSchema = new mongoose.Schema(
     },
     values: [
       {
-        type: String,
-        trim: true,
-        required: true,
+        value: {
+          type: String,
+          trim: true,
+          required: true,
+        },
+        numberOfProduct: {
+          type: Number,
+          default: 1,
+          min: 1,
+        },
       },
     ],
   },

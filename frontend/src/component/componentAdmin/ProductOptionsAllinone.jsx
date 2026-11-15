@@ -30,6 +30,7 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  Minus,
 } from 'lucide-react';
 import { SectionHeader } from '@/component/componentAdmin/SectionHeader.jsx';
 
@@ -46,7 +47,7 @@ const ProductOptionsAllinone = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [formData, setFormData] = useState({ name: '', values: '' });
+  const [formData, setFormData] = useState({ name: '', values: [{ value: '', numberOfProduct: 1 }] });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -75,7 +76,7 @@ const ProductOptionsAllinone = () => {
   const handleOpenCreate = () => {
     setIsEdit(false);
     setEditId(null);
-    setFormData({ name: '', values: '' });
+    setFormData({ name: '', values: [{ value: '', numberOfProduct: 1 }] });
     setDialogOpen(true);
   };
 
@@ -84,30 +85,69 @@ const ProductOptionsAllinone = () => {
     setEditId(option._id);
     setFormData({
       name: option.name,
-      values: (option.values || []).join(', '),
+      values: (option.values || []).map((v) => {
+        const plain = v && typeof v === 'object' && !Array.isArray(v)
+          ? (v.toObject ? v.toObject() : v)
+          : {};
+        return {
+          value: plain.value !== undefined ? plain.value : v,
+          numberOfProduct: plain.numberOfProduct ?? 1,
+        };
+      }),
     });
     setDialogOpen(true);
   };
 
+  const addValueRow = () => {
+    setFormData({
+      ...formData,
+      values: [...formData.values, { value: '', numberOfProduct: 1 }],
+    });
+  };
+
+  const removeValueRow = (index) => {
+    setFormData({
+      ...formData,
+      values: formData.values.filter((_, i) => i !== index),
+    });
+  };
+
+  const updateValueRow = (index, field, value) => {
+    const newValues = [...formData.values];
+    newValues[index][field] = value;
+    setFormData({ ...formData, values: newValues });
+  };
+
   const handleSave = async () => {
-    if (!formData.name.trim() || !formData.values.trim()) {
-      toast.warning('Name and values are required.');
+    if (!formData.name.trim()) {
+      toast.warning('Name is required.');
       return;
     }
-    const valuesArray = formData.values
-      .split(',')
-      .map((v) => v.trim())
-      .filter((v) => v);
+    const valuesArray = formData.values.filter((v) => typeof v.value === 'string' && v.value.trim());
     if (valuesArray.length === 0) {
       toast.warning('At least one value is required.');
       return;
     }
+    for (const v of valuesArray) {
+      const num = Number(v.numberOfProduct);
+      if (!Number.isInteger(num) || num < 1) {
+        toast.warning('Number of product must be a positive integer.');
+        return;
+      }
+    }
+    const payload = {
+      name: formData.name,
+      values: valuesArray.map((v) => ({
+        value: v.value.trim(),
+        numberOfProduct: Number(v.numberOfProduct),
+      })),
+    };
     setIsSubmitting(true);
     try {
       if (isEdit) {
         await axios.put(
           `${apiUrl}/product-options/${editId}`,
-          { name: formData.name, values: valuesArray },
+          payload,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -119,7 +159,7 @@ const ProductOptionsAllinone = () => {
       } else {
         await axios.post(
           `${apiUrl}/product-options`,
-          { name: formData.name, values: valuesArray },
+          payload,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -235,11 +275,24 @@ const ProductOptionsAllinone = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {(opt.values || []).map((val, idx) => (
-                              <Badge key={idx} variant="outline">
-                                {val}
-                              </Badge>
-                            ))}
+                            {(opt.values || []).map((val, idx) => {
+                              let valueText = '';
+                              let count = 1;
+                              if (val) {
+                                if (typeof val === 'object' && !Array.isArray(val)) {
+                                  const obj = val.toObject ? val.toObject() : val;
+                                  valueText = obj.value != null ? String(obj.value) : '';
+                                  count = obj.numberOfProduct != null ? obj.numberOfProduct : 1;
+                                } else {
+                                  valueText = String(val);
+                                }
+                              }
+                              return (
+                                <Badge key={idx} variant="outline">
+                                  {valueText} ({count})
+                                </Badge>
+                              );
+                            })}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
@@ -335,24 +388,51 @@ const ProductOptionsAllinone = () => {
                 htmlFor="values"
                 className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
               >
-                Values (comma-separated)
+                Values
               </label>
-              <Input
-                id="values"
-                value={formData.values}
-                onChange={(e) =>
-                  setFormData({ ...formData, values: e.target.value })
-                }
-                placeholder="e.g., Small, Medium, Large"
-                required
-              />
-              {!formData.values.trim() ? (
-                <p className="text-xs text-destructive">
-                  At least one value is required
-                </p>
+              <div className="space-y-2">
+                {formData.values.map((val, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2 border border-input p-2 rounded-md bg-background"
+                  >
+                    <Input
+                      id={`value-${idx}`}
+                      value={val.value}
+                      onChange={(e) => updateValueRow(idx, 'value', e.target.value)}
+                      placeholder="e.g., Small"
+                      required
+                    />
+                    <Input
+                      id={`numberOfProduct-${idx}`}
+                      type="number"
+                      min="1"
+                      value={val.numberOfProduct}
+                      onChange={(e) => updateValueRow(idx, 'numberOfProduct', e.target.value)}
+                      placeholder="1"
+                      className="w-20"
+                      required
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => removeValueRow(idx)}
+                      disabled={formData.values.length === 1}
+                    >
+                      <Minus className="size-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" onClick={addValueRow}>
+                  <Plus className="size-3 mr-1" />
+                  Add value
+                </Button>
+              </div>
+              {!formData.values.some((v) => typeof v.value === 'string' && v.value.trim()) ? (
+                <p className="text-xs text-destructive">At least one value is required</p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  e.g., S, M, L, XL
+                  Each value has its own number of products (default 1).
                 </p>
               )}
             </div>
