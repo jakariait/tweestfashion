@@ -914,16 +914,16 @@ const ProductAddToCart = ({ product }) => {
               </div>
             ) : (
               <>
-                <div className="px-4 py-2.5">
-                  <input
-                    type="search"
-                    autoFocus
-                    value={comboPickerSearch}
-                    onChange={(e) => setComboPickerSearch(e.target.value)}
-                    placeholder="Search products..."
-                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#2E7D31] focus:outline-none"
-                  />
-                </div>
+                {/*<div className="px-4 py-2.5">*/}
+                {/*  <input*/}
+                {/*    type="search"*/}
+                {/*    autoFocus*/}
+                {/*    value={comboPickerSearch}*/}
+                {/*    onChange={(e) => setComboPickerSearch(e.target.value)}*/}
+                {/*    placeholder="Search products..."*/}
+                {/*    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#2E7D31] focus:outline-none"*/}
+                {/*  />*/}
+                {/*</div>*/}
 
                 <div className="grid flex-1 grid-cols-2 gap-2 overflow-y-auto px-4 pb-4 sm:grid-cols-3">
                   {comboPickerItems.map((item) => {
@@ -942,7 +942,7 @@ const ProductAddToCart = ({ product }) => {
                         onClick={() => handleComboPickerProductClick(item)}
                         className="group overflow-hidden rounded-lg border border-gray-200 bg-white text-left transition-colors hover:border-[#2E7D31]/60 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        <div className="h-24 w-full overflow-hidden bg-gray-50">
+                        <div className=" w-full overflow-hidden bg-gray-50">
                           {item.thumbnailImage ? (
                             <img
                               src={`${imageUrl}/${item.thumbnailImage}`}

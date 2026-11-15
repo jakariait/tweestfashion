@@ -384,14 +384,14 @@ const BuyNowButton = ({ product, isAddToCart = false }) => {
                 </div>
               ) : (
                 <>
-                  <input
-                    type="search"
-                    autoFocus
-                    value={pickerSearch}
-                    onChange={(e) => setPickerSearch(e.target.value)}
-                    placeholder="Search products..."
-                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#2E7D31] focus:outline-none"
-                  />
+                  {/*<input*/}
+                  {/*  type="search"*/}
+                  {/*  autoFocus*/}
+                  {/*  value={pickerSearch}*/}
+                  {/*  onChange={(e) => setPickerSearch(e.target.value)}*/}
+                  {/*  placeholder="Search products..."*/}
+                  {/*  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#2E7D31] focus:outline-none"*/}
+                  {/*/>*/}
 
                   <div className="grid max-h-[75vh] grid-cols-2 gap-2 overflow-y-auto">
                     {pickerItems.map((item) => {
