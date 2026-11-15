@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, lazy, useCallback } from 'react';
+import { useRef, useState, useEffect, lazy, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import useCategoryStore from '../../store/useCategoryStore.js';
 import useSubCategoryStore from '../../store/useSubCategoryStore.js';
@@ -105,6 +105,10 @@ const ProductForm = ({ isEdit: isEditMode }) => {
   const [purchasePrice, setPurchasePrice] = useState('');
   const [selectedFlags, setSelectedFlags] = useState([]);
   const [hasVariant, setHasVariant] = useState(true);
+  const [isCombo, setIsCombo] = useState(false);
+  const [comboProducts, setComboProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
+  const [comboSearch, setComboSearch] = useState('');
   const [variants, setVariants] = useState([
     {
       attributes: [{ option: '', value: '' }],
@@ -140,6 +144,18 @@ const ProductForm = ({ isEdit: isEditMode }) => {
       setBrands(data.data || []);
     } catch {
       toast.error('Failed to load brands');
+    }
+  }, []);
+
+  // Products available to bundle into a combo product
+  const fetchAllProducts = useCallback(async () => {
+    try {
+      const { data } = await http.get('/getAllProductsAdmin', {
+        params: { page: 1, limit: 1000 },
+      });
+      setAllProducts(data.products || []);
+    } catch {
+      toast.error('Failed to load products');
     }
   }, []);
 
@@ -189,6 +205,9 @@ const ProductForm = ({ isEdit: isEditMode }) => {
       },
     ]);
     setHasVariant(true);
+    setIsCombo(false);
+    setComboProducts([]);
+    setComboSearch('');
     setIsActive('true');
     setFreeShipping(false);
     setErrors({});
@@ -214,6 +233,7 @@ const ProductForm = ({ isEdit: isEditMode }) => {
     fetchProductOptions();
     fetchFlags();
     fetchBrands();
+    fetchAllProducts();
   }, [
     isEditMode,
     slug,
@@ -224,6 +244,7 @@ const ProductForm = ({ isEdit: isEditMode }) => {
     fetchProductOptions,
     fetchFlags,
     fetchBrands,
+    fetchAllProducts,
     resetProduct,
   ]);
 
@@ -255,6 +276,12 @@ const ProductForm = ({ isEdit: isEditMode }) => {
       setSelectedBrand(product.brand ? toId(product.brand) : '');
       setIsActive(String(product.isActive));
       setFreeShipping(product.freeShipping || false);
+      setIsCombo(Boolean(product.isCombo));
+      setComboProducts(
+        (product.comboProducts || [])
+          .map((p) => toId(p))
+          .filter((id) => Boolean(id)),
+      );
 
       if (product.thumbnailImage) {
         setImagePreview(`${imageUrl}/${product.thumbnailImage}`);
@@ -334,8 +361,56 @@ const ProductForm = ({ isEdit: isEditMode }) => {
     }
   }, [product, subCategories, childCategories, categories, isEditMode]);
 
+  // Combo stock is always the combined stock of the selected products — the
+  // admin never sets it directly.
+  const comboStock = useMemo(() => {
+    const known = new Map();
+    allProducts.forEach((p) => known.set(p._id, p));
+    (product?.comboProducts || []).forEach((p) => {
+      const id = toId(p);
+      if (id && typeof p === 'object') known.set(id, p);
+    });
+    return comboProducts.reduce((total, id) => {
+      const p = known.get(id);
+      return total + (Number(p?.finalStock) || 0);
+    }, 0);
+  }, [allProducts, comboProducts, product]);
+
+  const comboProductOptions = useMemo(() => {
+    const term = comboSearch.trim().toLowerCase();
+    return allProducts.filter((p) => {
+      if (isEditMode && p._id === product?._id) return false;
+      if (!term) return true;
+      return (
+        String(p.name || '').toLowerCase().includes(term) ||
+        String(p.productCode || '').toLowerCase().includes(term) ||
+        String(p.productId || '').includes(term)
+      );
+    });
+  }, [allProducts, comboSearch, isEditMode, product]);
+
+  const findComboProduct = (id) =>
+    allProducts.find((p) => p._id === id) ||
+    (product?.comboProducts || []).find((p) => toId(p) === id);
+
   const handleToggle = () => {
     setHasVariant(!hasVariant);
+  };
+
+  const handleComboToggle = (checked) => {
+    setIsCombo(checked);
+    if (!checked) {
+      setComboProducts([]);
+      setComboSearch('');
+    }
+  };
+
+  const handleComboProductToggle = (productId) => {
+    setComboProducts((prev) =>
+      prev.includes(productId)
+        ? prev.filter((id) => id !== productId)
+        : [...prev, productId],
+    );
   };
 
   const handleAddVariant = () => {
@@ -749,6 +824,11 @@ const ProductForm = ({ isEdit: isEditMode }) => {
     if (!name.trim()) validationErrors.name = 'Product name is required.';
     if (!selectedCategory) validationErrors.category = 'Category is required.';
 
+    if (isCombo && comboProducts.length === 0) {
+      validationErrors.comboProducts =
+        'Select at least one product for the combo.';
+    }
+
     if (!imagePreview && !isEditMode) {
       validationErrors.thumbnailImage = 'Thumbnail image is required.';
     } else if (isEditMode && !imagePreview && !product?.thumbnailImage) {
@@ -777,11 +857,19 @@ const ProductForm = ({ isEdit: isEditMode }) => {
     formData.append('metaDescription', metaDescription);
     formData.append('finalPrice', finalPrice);
     formData.append('finalDiscount', finalDiscount);
-    formData.append('finalStock', finalStock);
     formData.append('purchasePrice', purchasePrice);
     formData.append('isActive', isActive);
     formData.append('freeShipping', freeShipping);
     formData.append('hasVariant', hasVariant);
+    formData.append('isCombo', isCombo);
+    if (isCombo) {
+      formData.append('finalStock', comboStock);
+      comboProducts.forEach((productId) =>
+        formData.append('comboProducts', productId),
+      );
+    } else {
+      formData.append('finalStock', finalStock);
+    }
 
     if (selectedCategory) formData.append('category', selectedCategory);
     if (selectedSubCategory)
@@ -821,24 +909,26 @@ const ProductForm = ({ isEdit: isEditMode }) => {
         variant.attributes.length > 0 &&
         variant.attributes.every((attr) => attr.option && attr.value) &&
         variant.price &&
-        variant.stock !== '' &&
-        variant.stock != null,
+        (isCombo || (variant.stock !== '' && variant.stock != null)),
     );
 
     if (hasVariant && processedVariants.length < variants.length) {
       const skipped = variants.length - processedVariants.length;
       setErrors((prev) => ({
         ...prev,
-        variants: `${skipped} incomplete variant(s) will not be saved. Every variant needs an option + value, stock, and price.`,
+        variants: `${skipped} incomplete variant(s) will not be saved. Every variant needs an option + value${isCombo ? '' : ', stock'}, and price.`,
       }));
       toast.warning(
-        `${skipped} incomplete variant(s) were not saved. Fill stock, price and all attributes.`,
+        `${skipped} incomplete variant(s) were not saved. Fill ${isCombo ? 'price' : 'stock, price'} and all attributes.`,
       );
     }
 
     if (hasVariant && processedVariants.length > 0) {
       processedVariants.forEach((variant, index) => {
-        formData.append(`variants[${index}][stock]`, variant.stock);
+        formData.append(
+          `variants[${index}][stock]`,
+          isCombo ? comboStock : variant.stock,
+        );
         formData.append(`variants[${index}][price]`, variant.price);
         formData.append(`variants[${index}][discount]`, variant.discount);
         // '' means the image was cleared server-side; the saved image name
@@ -1121,10 +1211,16 @@ const ProductForm = ({ isEdit: isEditMode }) => {
                     <Input
                       id="finalStock"
                       type="number"
-                      value={finalStock}
+                      value={isCombo ? comboStock : finalStock}
                       onChange={handleFinalStockChange}
-                      required={!hasVariant}
+                      required={!hasVariant && !isCombo}
+                      disabled={isCombo}
                     />
+                    {isCombo && (
+                      <p className="text-xs text-muted-foreground">
+                        Calculated from the selected combo products.
+                      </p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -1654,6 +1750,142 @@ const ProductForm = ({ isEdit: isEditMode }) => {
 
         <Card className="shadow-md border-0">
           <CardHeader>
+            <CardTitle>Combo Product</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="isCombo"
+                checked={isCombo}
+                onCheckedChange={handleComboToggle}
+              />
+              <Label htmlFor="isCombo">This is a combo product</Label>
+            </div>
+
+            {isCombo && (
+              <>
+                <div className="space-y-3">
+                  <Input
+                    placeholder="Search products..."
+                    value={comboSearch}
+                    onChange={(e) => setComboSearch(e.target.value)}
+                  />
+                  <div className="grid max-h-96 grid-cols-2 gap-3 overflow-y-auto sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                    {comboProductOptions.map((comboProduct) => {
+                      const isSelected = comboProducts.includes(
+                        comboProduct._id,
+                      );
+                      return (
+                        <div
+                          key={comboProduct._id}
+                          className={`relative cursor-pointer rounded-lg p-2 transition-colors ${
+                            isSelected
+                              ? 'bg-primary/10'
+                              : 'bg-muted/40 hover:bg-muted'
+                          }`}
+                          onClick={() =>
+                            handleComboProductToggle(comboProduct._id)
+                          }
+                        >
+                          <div className="mb-2 aspect-square w-full overflow-hidden rounded-md bg-muted">
+                            {comboProduct.thumbnailImage ? (
+                              <img
+                                src={`${imageUrl}/${comboProduct.thumbnailImage}`}
+                                alt={comboProduct.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                                <Image className="size-6" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-start gap-1.5">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() =>
+                                handleComboProductToggle(comboProduct._id)
+                              }
+                              className="mt-0.5"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-medium break-words">
+                                {comboProduct.name}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                Stock: {comboProduct.finalStock ?? 0}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {comboProductOptions.length === 0 && (
+                      <p className="col-span-full text-sm text-muted-foreground px-2">
+                        No products found
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {comboProducts.length > 0 && (
+                  <div className="space-y-2">
+                    {comboProducts.map((comboProductId) => {
+                      const comboProduct =
+                        findComboProduct(comboProductId);
+                      return (
+                        <div
+                          key={comboProductId}
+                          className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-3 py-2"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium break-words">
+                              {comboProduct?.name || 'Unknown product'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Stock: {comboProduct?.finalStock ?? 0}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() =>
+                              handleComboProductToggle(comboProductId)
+                            }
+                          >
+                            <X className="size-3.5" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="rounded-md bg-muted px-3 py-2">
+                  <p className="text-sm">
+                    Combined stock:{' '}
+                    <span className="font-semibold">{comboStock}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Stock is calculated from the selected products and
+                    cannot be edited.
+                  </p>
+                </div>
+
+                {errors.comboProducts && (
+                  <p className="text-xs text-destructive">
+                    {errors.comboProducts}
+                  </p>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md border-0">
+          <CardHeader>
             <CardTitle>Product Variants</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1837,8 +2069,9 @@ const ProductForm = ({ isEdit: isEditMode }) => {
                           <TableCell>
                             <Input
                               type="number"
-                              value={variant.stock}
-                              required
+                              value={isCombo ? comboStock : variant.stock}
+                              required={!isCombo}
+                              disabled={isCombo}
                               onChange={(e) => {
                                 const value = e.target.value;
                                 if (value >= 0 || value === '') {

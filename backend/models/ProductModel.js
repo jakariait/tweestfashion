@@ -117,6 +117,11 @@ const productSchema = new mongoose.Schema(
 
     variants: { type: [productVariantSchema], default: [] },
 
+    // A combo product bundles other products; its stock is always the combined
+    // stock of the selected products and cannot be set manually.
+    isCombo: { type: Boolean, default: false },
+    comboProducts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
+
     finalPrice: {
       type: Number,
       min: 0,
@@ -203,21 +208,41 @@ productSchema.pre('validate', async function (next) {
 });
 
 // Pre-save hook to calculate finalPrice, finalDiscount, and finalStock
-productSchema.pre('save', function (next) {
+productSchema.pre('save', async function () {
   if (this.variants.length > 0) {
-    // If variants exist, set finalPrice, finalDiscount, and finalStock based on variants
+    // If variants exist, set finalPrice and finalDiscount based on variants
     this.finalPrice = this.variants.reduce((sum, v) => sum + v.price, 0) / this.variants.length;
     this.finalDiscount =
       this.variants.reduce((sum, v) => sum + v.discount, 0) / this.variants.length;
-    this.finalStock = this.variants.reduce((total, v) => total + v.stock, 0);
+    if (!this.isCombo) {
+      this.finalStock = this.variants.reduce((total, v) => total + v.stock, 0);
+    }
   } else {
-    // If no variants, set finalPrice, finalDiscount, and finalStock to direct product input values
+    // If no variants, set finalPrice and finalDiscount to direct product input values
     this.finalPrice = this.finalPrice || 0; // Or set it to the product-level price if needed
     this.finalDiscount = this.finalDiscount || 0; // Or set it to the product-level discount if needed
-    this.finalStock = this.finalStock || 0; // Or set it to the product-level stock if needed
+    if (!this.isCombo) {
+      this.finalStock = this.finalStock || 0; // Or set it to the product-level stock if needed
+    }
   }
 
-  next();
+  // A combo product's stock is derived from the products it bundles — never
+  // from user input — and every variant shares that combined stock.
+  if (this.isCombo) {
+    const comboIds = (this.comboProducts || []).filter((id) =>
+      mongoose.Types.ObjectId.isValid(id)
+    );
+    const components = comboIds.length
+      ? await ProductModel.find({ _id: { $in: comboIds } }).select('finalStock')
+      : [];
+    this.finalStock = components.reduce(
+      (total, component) => total + (component.finalStock || 0),
+      0
+    );
+    this.variants.forEach((variant) => {
+      variant.stock = this.finalStock;
+    });
+  }
 });
 
 // Indexing for faster queries

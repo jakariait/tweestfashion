@@ -26,10 +26,34 @@ const deleteOldFiles = (filenames) => {
   }
 };
 
+// Multipart form fields arrive as strings, and a repeated `comboProducts`
+// field may be a single value or an array — normalize both before saving.
+const normalizeComboFields = (data) => {
+  const hasFlag = data.isCombo !== undefined;
+  if (hasFlag) {
+    data.isCombo = data.isCombo === true || data.isCombo === 'true';
+  }
+
+  if (hasFlag && !data.isCombo) {
+    data.comboProducts = [];
+    return;
+  }
+
+  if (data.comboProducts !== undefined) {
+    let ids = data.comboProducts;
+    if (ids == null) ids = [];
+    if (!Array.isArray(ids)) ids = [ids];
+    data.comboProducts = ids.filter((id) =>
+      mongoose.Types.ObjectId.isValid(id)
+    );
+  }
+};
+
 // Create a new product
 const createProduct = async (data) => {
   try {
     delete data.hasVariant;
+    normalizeComboFields(data);
     const product = new ProductModel(data); // Save product with image names
     await product.save();
     return product;
@@ -54,8 +78,12 @@ const getProducts = async () => {
         { path: 'subCategory', select: '-createdAt -updatedAt' },
         { path: 'childCategory', select: '-createdAt -updatedAt' },
         { path: 'flags', select: '-createdAt -updatedAt' },
-      { path: 'brand', select: '-createdAt -updatedAt' },
+        { path: 'brand', select: '-createdAt -updatedAt' },
         { path: 'variants.attributes.option', select: '-createdAt -updatedAt' },
+        {
+          path: 'comboProducts',
+          select: 'name slug productId finalStock thumbnailImage',
+        },
       ]);
 
     return products;
@@ -76,6 +104,10 @@ const getProductById = async (productId) => {
       { path: 'flags', select: '-createdAt -updatedAt' },
       { path: 'brand', select: '-createdAt -updatedAt' },
       { path: 'variants.attributes.option', select: '-createdAt -updatedAt' },
+      {
+        path: 'comboProducts',
+        select: 'name slug productId finalStock thumbnailImage',
+      },
     ]);
     if (!product) throw new Error('Product not found');
     return product;
@@ -95,6 +127,10 @@ const getProductBySlug = async (slug) => {
       { path: 'flags', select: '-createdAt -updatedAt' },
       { path: 'brand', select: '-createdAt -updatedAt' },
       { path: 'variants.attributes.option', select: '-createdAt -updatedAt' },
+      {
+        path: 'comboProducts',
+        select: 'name slug productId finalStock thumbnailImage',
+      },
     ]);
 
     if (!product) throw new Error('Product not found');
@@ -438,13 +474,17 @@ const getAllProducts = async ({
       .skip((page - 1) * limit)
       .limit(limit)
       .select(
-        'name slug finalDiscount finalPrice finalStock thumbnailImage isActive images productId category variants flags brand productCode freeShipping'
+        'name slug finalDiscount finalPrice finalStock thumbnailImage isActive images productId category variants flags brand productCode freeShipping isCombo comboProducts'
       )
       .populate([
         { path: 'category', select: '-createdAt -updatedAt' },
         { path: 'flags', select: '-createdAt -updatedAt' },
       { path: 'brand', select: '-createdAt -updatedAt' },
         { path: 'variants.attributes.option', select: '-createdAt -updatedAt' },
+        {
+          path: 'comboProducts',
+          select: 'name slug productId finalStock thumbnailImage',
+        },
       ]);
 
     return {
@@ -465,6 +505,8 @@ const updateProduct = async (productId, updatedData, files) => {
     if (!product) {
       throw new Error('Product not found');
     }
+
+    normalizeComboFields(updatedData);
 
     // --- IMAGE HANDLING START ---
     // Handle thumbnail image update (only if a new file is uploaded)
@@ -572,8 +614,9 @@ const updateProduct = async (productId, updatedData, files) => {
           };
         }
 
-        // New variant
-        if (!variantData.price || !variantData.stock) {
+        // New variant — a combo product derives its stock from the bundled
+        // products, so only the price is required from the user
+        if (!variantData.price || (!updatedData.isCombo && !variantData.stock)) {
           throw new Error(`New variant requires price and stock`);
         }
 
