@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SectionHeader } from '@/component/componentAdmin/SectionHeader.jsx';
 
@@ -21,8 +21,6 @@ const AdminPathaoConfig = () => {
   });
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
-  const [showClientSecret, setShowClientSecret] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const { token } = useAuthAdminStore();
 
@@ -115,30 +113,15 @@ const AdminPathaoConfig = () => {
 
           <div className="space-y-2">
             <Label htmlFor="clientSecret">Client Secret</Label>
-            <div className="relative">
-              <Input
-                id="clientSecret"
-                type={showClientSecret ? 'text' : 'password'}
-                name="clientSecret"
-                value={config.clientSecret}
-                onChange={handleChange}
-                placeholder="Your Client Secret"
-                required
-                className="pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowClientSecret((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label="Toggle client secret visibility"
-              >
-                {showClientSecret ? (
-                  <EyeOff size={4} strokeWidth={1.5} />
-                ) : (
-                  <Eye size={4} strokeWidth={1.5} />
-                )}
-              </button>
-            </div>
+            <Input
+              id="clientSecret"
+              type="text"
+              name="clientSecret"
+              value={config.clientSecret}
+              onChange={handleChange}
+              placeholder="Your Client Secret"
+              required
+            />
           </div>
 
           <div className="space-y-2">
@@ -155,30 +138,15 @@ const AdminPathaoConfig = () => {
 
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                name="password"
-                value={config.password}
-                onChange={handleChange}
-                placeholder="Your Password"
-                required
-                className="pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label="Toggle password visibility"
-              >
-                {showPassword ? (
-                  <EyeOff size={4} strokeWidth={1.5} />
-                ) : (
-                  <Eye size={4} strokeWidth={1.5} />
-                )}
-              </button>
-            </div>
+            <Input
+              id="password"
+              type="text"
+              name="password"
+              value={config.password}
+              onChange={handleChange}
+              placeholder="Your Password"
+              required
+            />
           </div>
 
           <div className="space-y-2">

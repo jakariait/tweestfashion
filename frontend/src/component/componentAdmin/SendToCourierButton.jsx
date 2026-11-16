@@ -137,17 +137,17 @@ const SendToCourierButton = ({ orderData, onSuccess }) => {
   const sendToPathao = async () => {
     try {
       const payload = {
-        store_id: pathaoStoreId,
-        recipient_name: orderData.recipient_name,
-        recipient_phone: orderData.recipient_phone,
-        merchant_order_id: orderData.invoice,
-        recipient_address: orderData.recipient_address,
-        delivery_type: '48',
-        item_type: '2',
-        item_quantity: orderData.items,
-        item_weight: '0.5',
-        amount_to_collect: orderData.cod_amount,
-        special_instruction: note,
+        storeId: pathaoStoreId,
+        merchantOrderId: orderData.invoice,
+        recipientName: orderData.recipient_name,
+        recipientPhone: orderData.recipient_phone,
+        recipientAddress: orderData.recipient_address,
+        deliveryType: '48',
+        itemType: '2',
+        itemQuantity: orderData.items,
+        itemWeight: '0.5',
+        amountToCollect: orderData.cod_amount,
+        specialInstruction: note,
       };
 
       const response = await axios.post(`${apiURL}/pathao/orders`, payload, {

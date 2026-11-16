@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SectionHeader } from '@/component/componentAdmin/SectionHeader.jsx';
 
@@ -18,7 +18,6 @@ const AdminSteadfastConfig = () => {
   });
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
-  const [showSecretKey, setShowSecretKey] = useState(false);
 
   const { token } = useAuthAdminStore();
 
@@ -109,30 +108,15 @@ const AdminSteadfastConfig = () => {
 
           <div className="space-y-2">
             <Label htmlFor="secretKey">Secret Key</Label>
-            <div className="relative">
-              <Input
-                id="secretKey"
-                type={showSecretKey ? 'text' : 'password'}
-                name="secretKey"
-                value={config.secretKey}
-                onChange={handleChange}
-                placeholder="Your Secret Key"
-                required
-                className="pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowSecretKey((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label="Toggle secret key visibility"
-              >
-                {showSecretKey ? (
-                  <EyeOff size={4} strokeWidth={1.5} />
-                ) : (
-                  <Eye size={4} strokeWidth={1.5} />
-                )}
-              </button>
-            </div>
+            <Input
+              id="secretKey"
+              type="text"
+              name="secretKey"
+              value={config.secretKey}
+              onChange={handleChange}
+              placeholder="Your Secret Key"
+              required
+            />
           </div>
 
           <Button type="submit" disabled={loading} className="w-full">
