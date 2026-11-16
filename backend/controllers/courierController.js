@@ -39,7 +39,7 @@ const getDynamicCourierStatus = async (req, res) => {
       if (!order.courierConsignmentId) {
         return res.status(400).json({ message: 'Pathao consignment ID not found for this order.' });
       }
-      status = await pathaoService.getPathaoOrderStatus(order.courierConsignmentId);
+      status = await pathaoService.getOrderInfo(order.courierConsignmentId);
     } else {
       return res.status(400).json({ message: 'No valid courier provider found for this order.' });
     }
