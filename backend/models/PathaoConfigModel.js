@@ -41,6 +41,9 @@ const pathaoConfigSchema = new mongoose.Schema(
     expiresIn: {
       type: Number,
     },
+    tokenIssuedAt: {
+      type: Date,
+    },
     isActive: {
       type: Boolean,
       default: true,

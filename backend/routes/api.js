@@ -786,6 +786,20 @@ router.patch(
   pathaoConfigController.updatePathaoConfigController
 );
 
+// Pathao Config Routes
+router.get(
+  '/pathao-config',
+  adminProtect,
+  checkPermission('pathao_api'),
+  pathaoConfigController.getPathaoConfigController
+);
+router.patch(
+  '/pathao-config',
+  adminProtect,
+  checkPermission('pathao_api'),
+  pathaoConfigController.updatePathaoConfigController
+);
+
 // Pathao Courier Routes
 router.get('/pathao/cities', adminProtect, pathaoController.getCitiesController);
 router.get('/pathao/zones/:cityId', adminProtect, pathaoController.getZonesController);
@@ -793,8 +807,15 @@ router.get('/pathao/areas/:zoneId', adminProtect, pathaoController.getAreasContr
 router.get('/pathao/stores', adminProtect, pathaoController.getStoresController);
 router.post('/pathao/stores', adminProtect, pathaoController.createStoreController);
 router.post('/pathao/orders', adminProtect, pathaoController.createOrderController);
+router.get('/pathao/issue-token', adminProtect, pathaoController.issueTokenController);
+router.get('/pathao/refresh-token', adminProtect, pathaoController.refreshTokenController);
 router.post('/pathao/orders/bulk', adminProtect, pathaoController.createBulkOrderController);
 router.get('/pathao/orders/:consignmentId', adminProtect, pathaoController.getOrderInfoController);
+router.get(
+  '/pathao/orders/:consignmentId/status',
+  adminProtect,
+  pathaoController.getOrderStatusController
+);
 router.post('/pathao/price-plan', adminProtect, pathaoController.calculatePriceController);
 
 // Routes for Blogs
