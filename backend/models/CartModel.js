@@ -28,6 +28,7 @@ const cartItemSchema = new mongoose.Schema({
       variantId: String,
       name: String,
       variant: String,
+      thumbnailImage: String,
       quantity: { type: Number, default: 1, min: 1 },
     },
   ],

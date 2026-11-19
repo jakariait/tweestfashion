@@ -36,9 +36,7 @@ const adjustComboComponentsStock = async (item, delta) => {
       let variant = null;
       if (selection.variantId) {
         variant =
-          component.variants.find(
-            (v) => v._id.toString() === String(selection.variantId)
-          ) || null;
+          component.variants.find((v) => v._id.toString() === String(selection.variantId)) || null;
       }
 
       // A variant was selected but no longer exists — leave its stock alone
@@ -254,7 +252,7 @@ const getAllOrders = async (filter = {}, page, limit, search = '', startDate, en
     const countQuery = Order.countDocuments(queryFilter);
 
     // 2. Create find query without populates and with .lean() for performance
-    let findQuery = Order.find(queryFilter).sort({ createdAt: -1 }).lean();
+    let findQuery = Order.find(queryFilter).sort({ createdAt: -1, _id: -1 }).lean();
 
     // 3. Apply pagination to the find query
     if (page && limit) {
@@ -312,6 +310,10 @@ const getOrderById = async (orderId) => {
       .populate({
         path: 'items.variantId',
       })
+      .populate({
+        path: 'items.comboSelections.productId',
+        select: 'name thumbnailImage images variants',
+      })
       .sort({ createdAt: -1 })
       .lean();
 
@@ -360,13 +362,13 @@ const updateOrder = async (orderId, updateData) => {
       let subtotal = 0;
       const productsToUpdate = new Map(); // Map<string, MongooseDocument>
 
-      // Create maps for old and new items for efficient lookup
-      const newItemsMap = new Map(
-        finalUpdate.items.map((item) => [(item.variantId || item.productId).toString(), item])
-      );
-      const oldItemsMap = new Map(
-        existingOrder.items.map((item) => [(item.variantId || item.productId).toString(), item])
-      );
+      // Create maps for old and new items for efficient lookup. The combo key
+      // keeps two combos of the same product/variant but different component
+      // picks as separate lines.
+      const buildItemKey = (item) =>
+        `${(item.productId || '').toString()}:${(item.variantId || 'Default').toString()}:${item.comboKey || ''}`;
+      const newItemsMap = new Map(finalUpdate.items.map((item) => [buildItemKey(item), item]));
+      const oldItemsMap = new Map(existingOrder.items.map((item) => [buildItemKey(item), item]));
       const allItemKeys = new Set([...newItemsMap.keys(), ...oldItemsMap.keys()]);
 
       // First pass: Fetch all products and run checks against in-memory state
@@ -420,8 +422,7 @@ const updateOrder = async (orderId, updateData) => {
         // Keep the bundled products' stock in sync with a combo item, exactly
         // like the combo product's own stock
         if (product.isCombo) {
-          const comboItemForStock =
-            newItem?.comboSelections?.length > 0 ? newItem : oldItem;
+          const comboItemForStock = newItem?.comboSelections?.length > 0 ? newItem : oldItem;
           await adjustComboComponentsStock(comboItemForStock, quantityChange);
         }
 
@@ -838,6 +839,45 @@ const getCustomersFromOrders = async (search, page, limit) => {
   }
 };
 
+// Get the orders immediately before and after the given order in the same
+// newest-first order used by the admin order list.
+const getAdjacentOrders = async (orderId) => {
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    throw new Error('Invalid order id');
+  }
+
+  const current = await Order.findById(orderId).select('_id createdAt').lean();
+  if (!current) {
+    throw new Error('Order not found');
+  }
+
+  // In a newest-first list, the previous order is the closest newer one and
+  // the next order is the closest older one. The _id tie-breaker keeps the
+  // navigation stable when several orders share the same createdAt.
+  const [previous, next] = await Promise.all([
+    Order.findOne({
+      $or: [
+        { createdAt: { $gt: current.createdAt } },
+        { createdAt: current.createdAt, _id: { $gt: current._id } },
+      ],
+    })
+      .sort({ createdAt: 1, _id: 1 })
+      .select('_id orderNo createdAt')
+      .lean(),
+    Order.findOne({
+      $or: [
+        { createdAt: { $lt: current.createdAt } },
+        { createdAt: current.createdAt, _id: { $lt: current._id } },
+      ],
+    })
+      .sort({ createdAt: -1, _id: -1 })
+      .select('_id orderNo createdAt')
+      .lean(),
+  ]);
+
+  return { previous: previous || null, next: next || null };
+};
+
 const getOrdersByPhone = async (phone) => {
   try {
     const orders = await Order.find({ 'shippingInfo.mobileNo': phone })
@@ -870,4 +910,5 @@ module.exports = {
   bulkDeleteOrders,
   getCustomersFromOrders,
   getOrdersByPhone,
+  getAdjacentOrders,
 };

@@ -24,15 +24,16 @@ const AllOrdersPage = () => {
 
   useEffect(() => {
     setBreadcrumb('ORDERS', `View ${title}`);
-  }, [title]);
+  }, [title, setBreadcrumb]);
 
   return (
     <RequirePermission permission="view_orders">
-      <div className="flex items-center justify-center">
-        <AdminNewOrderCreate />
-      </div>
-      <OrderStats />
-      <AllOrders title={title} status={status} />
+      <AllOrders
+        title={title}
+        status={status}
+        headerActions={<AdminNewOrderCreate />}
+        stats={<OrderStats />}
+      />
     </RequirePermission>
   );
 };

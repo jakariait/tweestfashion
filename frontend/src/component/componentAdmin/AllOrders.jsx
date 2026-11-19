@@ -42,20 +42,130 @@ import {
 } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import {
-  Search,
-  X,
-  Eye,
-  Trash2,
-  Download,
+  AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   ChevronLeft,
   ChevronRight,
-  ArrowUp,
-  ArrowDown,
-  ArrowUpDown,
+  Download,
+  Eye,
   Loader2,
+  PackageSearch,
+  Search,
+  Trash2,
+  X,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-const AllOrders = ({ title, status = '' }) => {
+const STATUS_TABS = [
+  { label: 'All', value: '' },
+  { label: 'Pending', value: 'pending' },
+  { label: 'Approved', value: 'approved' },
+  { label: 'In Transit', value: 'intransit' },
+  { label: 'Delivered', value: 'delivered' },
+  { label: 'Returned', value: 'returned' },
+  { label: 'Cancelled', value: 'cancelled' },
+];
+
+const formatAmount = (value) =>
+  Number(value ?? 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+const SortableHead = ({
+  column,
+  label,
+  orderBy,
+  sortDirection,
+  onSort,
+  className,
+}) => {
+  const isActive = orderBy === column;
+  return (
+    <TableHead
+      aria-sort={
+        isActive
+          ? sortDirection === 'asc'
+            ? 'ascending'
+            : 'descending'
+          : 'none'
+      }
+      className={cn('h-12', className)}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        aria-label={`Sort by ${label}`}
+        className="group inline-flex min-h-11 items-center gap-1.5 rounded-md px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+      >
+        {label}
+        {isActive ? (
+          sortDirection === 'asc' ? (
+            <ArrowUp className="size-3.5" aria-hidden="true" />
+          ) : (
+            <ArrowDown className="size-3.5" aria-hidden="true" />
+          )
+        ) : (
+          <ArrowUpDown
+            className="size-3.5 opacity-40 transition-opacity group-hover:opacity-70"
+            aria-hidden="true"
+          />
+        )}
+      </button>
+    </TableHead>
+  );
+};
+
+const OrdersLoadingSkeleton = ({ itemsPerPage }) => (
+  <div aria-busy="true" aria-live="polite" className="space-y-4">
+    <span className="sr-only">Loading orders</span>
+    <Card className="overflow-hidden border border-border/60 shadow-sm">
+      <CardContent className="p-0">
+        <div className="max-h-[60vh] overflow-hidden">
+          <Table className="min-w-[1100px]">
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                {Array.from({ length: 11 }).map((_, index) => (
+                  <TableHead key={index}>
+                    <Skeleton className="h-4 w-20" />
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: itemsPerPage }).map((_, rowIndex) => (
+                <TableRow key={rowIndex}>
+                  {Array.from({ length: 11 }).map((_, cellIndex) => (
+                    <TableCell key={cellIndex}>
+                      <Skeleton className="h-4 w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+    <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 p-3">
+      <Skeleton className="h-4 w-44" />
+      <div className="flex items-center gap-1">
+        <Skeleton className="size-11 rounded-md sm:size-9" />
+        <Skeleton className="size-11 rounded-md sm:size-9" />
+        <Skeleton className="size-11 rounded-md sm:size-9" />
+      </div>
+    </div>
+  </div>
+);
+
+const AllOrders = ({
+  title = 'All Orders',
+  status = '',
+  headerActions = null,
+  stats = null,
+}) => {
   const {
     fetchAllOrders,
     totalOrders,
@@ -75,16 +185,6 @@ const AllOrders = ({ title, status = '' }) => {
     fetchAllStatusCounts,
   } = useOrderStore();
 
-  const STATUS_TABS = [
-    { label: 'All', value: '' },
-    { label: 'Pending', value: 'pending' },
-    { label: 'Approved', value: 'approved' },
-    { label: 'In Transit', value: 'intransit' },
-    { label: 'Delivered', value: 'delivered' },
-    { label: 'Returned', value: 'returned' },
-    { label: 'Cancelled', value: 'cancelled' },
-  ];
-
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeStatus, setActiveStatus] = useState(
     () => searchParams.get('status') || status,
@@ -93,9 +193,7 @@ const AllOrders = ({ title, status = '' }) => {
   useEffect(() => {
     const urlStatus = searchParams.get('status') || '';
     if (urlStatus !== activeStatus) {
-      if (urlStatus) {
-        setActiveStatus(urlStatus);
-      }
+      setActiveStatus(urlStatus);
     }
   }, [activeStatus, searchParams]);
 
@@ -148,6 +246,7 @@ const AllOrders = ({ title, status = '' }) => {
   const [selectedCourier, setSelectedCourier] = useState('');
   const [sendingToCourier, setSendingToCourier] = useState(false);
   const [downloadingOrders, setDownloadingOrders] = useState(false);
+  const [deletingOrder, setDeletingOrder] = useState(false);
 
   const apiUrl = import.meta.env.VITE_API_URL;
   const navigate = useNavigate();
@@ -247,28 +346,6 @@ const AllOrders = ({ title, status = '' }) => {
     [orderBy],
   );
 
-  const SortHeader = ({ column, label, className }) => {
-    const isActive = orderBy === column;
-    const direction = isActive ? sortDirection : null;
-    return (
-      <button
-        onClick={() => handleSortRequest(column)}
-        className={`inline-flex items-center gap-1 font-medium text-sm hover:text-foreground transition-colors ${className || ''}`}
-      >
-        {label}
-        {isActive ? (
-          direction === 'asc' ? (
-            <ArrowUp className="size-3.5" />
-          ) : (
-            <ArrowDown className="size-3.5" />
-          )
-        ) : (
-          <ArrowUpDown className="size-3.5 text-muted-foreground/40" />
-        )}
-      </button>
-    );
-  };
-
   const sortedOrders = useMemo(() => {
     const compare = (a, b) => {
       let aVal, bVal;
@@ -326,6 +403,21 @@ const AllOrders = ({ title, status = '' }) => {
     [currentPage, itemsPerPage, totalOrders],
   );
 
+  const paginationItems = useMemo(() => {
+    const pages = [];
+    const delta = 1;
+    const left = Math.max(2, currentPage - delta);
+    const right = Math.min(totalPages - 1, currentPage + delta);
+
+    pages.push(1);
+    if (left > 2) pages.push('...');
+    for (let page = left; page <= right; page += 1) pages.push(page);
+    if (right < totalPages - 1) pages.push('...');
+    if (totalPages > 1) pages.push(totalPages);
+
+    return pages;
+  }, [currentPage, totalPages]);
+
   const handleView = useCallback(
     (orderId) => {
       navigate(`/admin/orders/${orderId}`);
@@ -333,7 +425,12 @@ const AllOrders = ({ title, status = '' }) => {
     [navigate],
   );
 
+  const handleRetry = useCallback(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
   const handleConfirmDelete = useCallback(async () => {
+    setDeletingOrder(true);
     try {
       const response = await axios.delete(`${apiUrl}/orders/${deleteId}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -346,9 +443,11 @@ const AllOrders = ({ title, status = '' }) => {
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Error deleting order');
+    } finally {
+      setDeletingOrder(false);
+      setDeleteDialogOpen(false);
+      setDeleteId(null);
     }
-    setDeleteDialogOpen(false);
-    setDeleteId(null);
   }, [deleteId, apiUrl, token, fetchOrders]);
 
   const handleSuccess = useCallback(() => {
@@ -372,7 +471,6 @@ const AllOrders = ({ title, status = '' }) => {
 
       if (ordersToDownload.length === 0) {
         toast.warning('No orders to download');
-        setDownloadingOrders(false);
         return;
       }
 
@@ -416,7 +514,9 @@ const AllOrders = ({ title, status = '' }) => {
       const url = URL.createObjectURL(blob);
       link.href = url;
       link.download = `Orders_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
       toast.success(
@@ -605,493 +705,641 @@ const AllOrders = ({ title, status = '' }) => {
   const allSelected =
     allOrders.length > 0 && selectedOrders.length === allOrders.length;
 
-  const LoadingSkeleton = useMemo(
-    () => (
-      <div>
-        <Card className="shadow-md border-0 min-h-[60vh]">
-          <CardContent className="p-0">
-            <div className="h-[60vh] overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="sticky top-0 z-10 bg-background">
-                    {[
-                      'Order No',
-                      'Order Date & Time',
-                      'Customer',
-                      'Mobile No',
-                      'Courier',
-                      'Courier Status',
-                      'Status',
-                      'Payment Status',
-                      'Total Amount',
-                      'Source',
-                      'Actions',
-                    ].map((header, i) => (
-                      <TableHead key={i}>
-                        <Skeleton className="h-4 w-24" />
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {[...Array(itemsPerPage)].map((_, index) => (
-                    <TableRow key={index}>
-                      {Array(11)
-                        .fill()
-                        .map((_, cellIndex) => (
-                          <TableCell key={cellIndex}>
-                            <Skeleton className="h-4 w-full" />
-                          </TableCell>
-                        ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-        <div className="flex items-center justify-between bg-muted/30 rounded-lg p-3 mt-4">
-          <Skeleton className="h-4 w-44" />
-          <div className="flex items-center gap-1">
-            <Skeleton className="size-8 rounded-md" />
-            <Skeleton className="size-8 rounded-md" />
-            <Skeleton className="size-8 rounded-md" />
-          </div>
-        </div>
-      </div>
-    ),
-    [itemsPerPage],
-  );
-
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-1 border-b border-border pb-2">
-        {STATUS_TABS.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => handleTabChange(tab.value)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-t-md transition-colors ${
-              activeStatus === tab.value
-                ? 'bg-[#00395d] text-white'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-            }`}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+              {title}
+            </h1>
+            <Badge variant="secondary" className="tabular-nums">
+              {totalOrders}
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Review, update, and export customer orders.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {headerActions}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleDownloadOrders}
+            disabled={downloadingOrders}
+            aria-busy={downloadingOrders}
+            className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
           >
-            {tab.label}
-            <span
-              className={`text-xs px-1.5 py-0.5 rounded-full ${
-                activeStatus === tab.value
-                  ? 'bg-white/20 text-white'
-                  : 'bg-muted-foreground/10 text-muted-foreground'
-              }`}
-            >
-              {tab.value ? (totalByStatus[tab.value] ?? 0) : allOrdersTotal}
+            {downloadingOrders ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Download className="size-4" aria-hidden="true" />
+            )}
+            <span className="sm:hidden">
+              {downloadingOrders ? 'Exporting…' : 'Export CSV'}
             </span>
-          </button>
-        ))}
-      </div>
-      <div className="flex items-center justify-between">
-        <h1 className="border-l-4 border-[#00395d] pl-2 text-lg font-semibold text-[#00395d]">
-          {title}
-        </h1>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleDownloadOrders}
-          disabled={downloadingOrders}
-        >
-          <Download className="size-4 mr-1" />
-          {downloadingOrders ? 'Downloading...' : 'Download All Orders (CSV)'}
-        </Button>
+            <span className="hidden sm:inline">
+              {downloadingOrders ? 'Downloading…' : 'Download All Orders (CSV)'}
+            </span>
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-lg bg-muted/30 p-4">
-        <div className="relative">
-          <Input
-            placeholder="Search orders..."
-            value={searchInput}
-            onChange={handleSearchInputChange}
-            onKeyDown={handleSearchKeyPress}
-            disabled={orderListLoading}
-            className="pr-20 bg-background"
-          />
-          <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-            {searchInput && (
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={handleClearSearch}
-                type="button"
-              >
-                <X className="size-3.5" />
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              onClick={handleSearchExecute}
-              disabled={!searchInput.trim()}
+      {stats}
+
+      <div
+        role="group"
+        aria-label="Filter orders by status"
+        className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {STATUS_TABS.map((tab) => {
+          const selected = activeStatus === tab.value;
+          const count = tab.value
+            ? (totalByStatus[tab.value] ?? 0)
+            : allOrdersTotal;
+          return (
+            <button
+              key={tab.value}
               type="button"
+              aria-pressed={selected}
+              onClick={() => handleTabChange(tab.value)}
+              className={cn(
+                'inline-flex h-11 shrink-0 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+                selected
+                  ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                  : 'border-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
+              )}
             >
-              <Search className="size-3.5" />
+              {tab.label}
+              <span
+                className={cn(
+                  'min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs tabular-nums',
+                  selected
+                    ? 'bg-primary-foreground/20 text-primary-foreground'
+                    : 'bg-muted-foreground/10 text-muted-foreground',
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <Card className="border border-border/60 shadow-sm">
+        <CardContent className="space-y-4 p-4 sm:p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+            <div className="relative min-w-0 flex-1">
+              <label htmlFor="order-search" className="sr-only">
+                Search orders
+              </label>
+              <Input
+                id="order-search"
+                type="search"
+                aria-label="Search orders by order number, customer, or phone"
+                placeholder="Search by order no, customer, or phone…"
+                value={searchInput}
+                onChange={handleSearchInputChange}
+                onKeyDown={handleSearchKeyPress}
+                disabled={orderListLoading}
+                className="h-11 bg-background pr-24"
+              />
+              <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+                {searchInput && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleClearSearch}
+                    aria-label="Clear search"
+                    className="h-9 w-9"
+                  >
+                    <X className="size-4" aria-hidden="true" />
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleSearchExecute}
+                  disabled={!searchInput.trim()}
+                  aria-label="Apply search"
+                  className="h-9 w-9"
+                >
+                  <Search className="size-4" aria-hidden="true" />
+                </Button>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <label
+                htmlFor="orders-per-page"
+                className="whitespace-nowrap text-sm font-medium text-muted-foreground"
+              >
+                Rows
+              </label>
+              <Select
+                value={String(itemsPerPage)}
+                onValueChange={handleItemsPerPageChange}
+              >
+                <SelectTrigger
+                  id="orders-per-page"
+                  aria-label="Items per page"
+                  className="h-11 w-20 bg-background sm:h-9"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[5, 10, 25, 50, 100].map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid gap-3 border-t border-border/60 pt-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] lg:items-end">
+            <div className="space-y-1.5">
+              <label
+                htmlFor="orders-start-date"
+                className="text-sm font-medium"
+              >
+                Start date
+              </label>
+              <Input
+                id="orders-start-date"
+                type="date"
+                value={localStartDate}
+                onChange={(e) => setLocalStartDate(e.target.value)}
+                className="h-11 bg-background"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="orders-end-date" className="text-sm font-medium">
+                End date
+              </label>
+              <Input
+                id="orders-end-date"
+                type="date"
+                value={localEndDate}
+                onChange={(e) => setLocalEndDate(e.target.value)}
+                className="h-11 bg-background"
+              />
+            </div>
+            <Button
+              type="button"
+              onClick={handleDateFilter}
+              disabled={!localStartDate && !localEndDate}
+              className="h-11"
+            >
+              Apply dates
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleClearDateFilter}
+              disabled={!localStartDate && !localEndDate}
+              className="h-11"
+            >
+              Clear dates
             </Button>
           </div>
-        </div>
-        <div className="flex items-center gap-2 justify-end">
-          <p className="text-sm text-muted-foreground whitespace-nowrap">
-            Items per page:
-          </p>
-          <Select
-            value={String(itemsPerPage)}
-            onValueChange={handleItemsPerPageChange}
-          >
-            <SelectTrigger className="w-20 h-8 bg-background">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[5, 10, 25, 50, 100].map((n) => (
-                <SelectItem key={n} value={String(n)}>
-                  {n}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 rounded-lg bg-muted/30 p-4 items-end">
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">Start Date</label>
-          <Input
-            type="date"
-            value={localStartDate}
-            onChange={(e) => setLocalStartDate(e.target.value)}
-            className="bg-background"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">End Date</label>
-          <Input
-            type="date"
-            value={localEndDate}
-            onChange={(e) => setLocalEndDate(e.target.value)}
-            className="bg-background"
-          />
-        </div>
-        <Button
-          onClick={handleDateFilter}
-          disabled={!localStartDate && !localEndDate}
-        >
-          Filter by Date
-        </Button>
-        <Button
-          variant="ghost"
-          onClick={handleClearDateFilter}
-          disabled={!localStartDate && !localEndDate}
-        >
-          Clear Dates
-        </Button>
-      </div>
+        </CardContent>
+      </Card>
 
       {searchQuery && (
-        <div className="flex items-center gap-2">
-          <p className="text-sm text-muted-foreground">
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex flex-wrap items-center gap-2 text-sm"
+        >
+          <p className="text-muted-foreground">
             {orderListLoading
-              ? 'Searching...'
-              : `Search results for: "${searchQuery}"`}
+              ? 'Searching…'
+              : `Search results for “${searchQuery}”`}
           </p>
-          <Button variant="ghost" size="sm" onClick={handleClearSearch}>
-            Clear Search
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            onClick={handleClearSearch}
+            className="h-11 px-0 text-sm sm:h-8"
+          >
+            Clear search
           </Button>
         </div>
       )}
 
       {orderListLoading ? (
-        LoadingSkeleton
+        <OrdersLoadingSkeleton itemsPerPage={itemsPerPage} />
       ) : orderListError ? (
-        <Card className="border-destructive/50 min-h-[40vh]">
-          <CardContent className="py-4 flex items-center justify-center">
-            <p className="text-destructive font-medium">{orderListError}</p>
+        <Card className="border border-destructive/30 shadow-sm">
+          <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+            <span className="flex size-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+              <AlertCircle className="size-6" aria-hidden="true" />
+            </span>
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold">Could not load orders</h2>
+              <p role="alert" className="text-sm text-muted-foreground">
+                {orderListError}
+              </p>
+            </div>
+            <Button type="button" onClick={handleRetry} className="h-11">
+              Try again
+            </Button>
+          </CardContent>
+        </Card>
+      ) : allOrders.length === 0 ? (
+        <Card className="border border-dashed border-border shadow-none">
+          <CardContent className="flex min-h-[40vh] flex-col items-center justify-center gap-3 py-12 text-center">
+            <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <PackageSearch className="size-6" aria-hidden="true" />
+            </span>
+            <div className="space-y-1">
+              <h2 className="text-base font-semibold">
+                {searchQuery ? 'No matching orders' : 'No orders found'}
+              </h2>
+              <p className="max-w-sm text-sm text-muted-foreground">
+                {searchQuery
+                  ? 'Try a different search term or clear the search to see all orders.'
+                  : 'Orders will appear here once customers place them.'}
+              </p>
+            </div>
+            {searchQuery && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClearSearch}
+                className="h-11"
+              >
+                Clear search
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
-        <>
-          {allOrders.length === 0 ? (
-            <div className="text-center py-8 flex flex-col items-center justify-center min-h-[calc(60vh_+_72px)]">
-              <p className="text-lg text-muted-foreground">
-                {searchQuery
-                  ? 'No orders found matching your search.'
-                  : 'No orders found.'}
+        <div className="space-y-4">
+          {selectedOrders.length > 0 && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex flex-col gap-3 rounded-xl border border-primary/10 bg-primary/5 p-3 sm:flex-row sm:flex-wrap sm:items-center"
+            >
+              <p className="text-sm font-medium tabular-nums">
+                {selectedOrders.length} order
+                {selectedOrders.length === 1 ? '' : 's'} selected
               </p>
-              {searchQuery && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Try adjusting your search terms or clear the search to see all
-                  orders.
-                </p>
-              )}
-            </div>
-          ) : (
-            <div>
-              {selectedOrders.length > 0 && (
-                <div className="flex items-center gap-2 mb-4 p-3 bg-muted rounded-lg flex-wrap">
-                  <p className="text-sm font-medium">
-                    {selectedOrders.length} order(s) selected
-                  </p>
-                  <Button size="sm" onClick={() => setBulkUpdateDialog(true)}>
-                    Bulk Update Status
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => setBulkDeleteDialog(true)}
-                  >
-                    Bulk Delete
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setBulkCourierDialog(true)}
-                  >
-                    Send to Courier
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setSelectedOrders([])}
-                  >
-                    Clear Selection
-                  </Button>
-                </div>
-              )}
-
-              <Card className="shadow-md border-0">
-                <CardContent
-                  className="p-0"
-                  style={{ opacity: orderListLoading ? 0.6 : 1 }}
+              <div className="flex flex-wrap gap-2 sm:ml-auto">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setBulkUpdateDialog(true)}
+                  className="h-11 sm:h-8"
                 >
-                  <div className="h-[60vh] overflow-y-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="sticky top-0 z-10 bg-background">
-                          <TableHead className="w-10">
-                            <Checkbox
-                              checked={allSelected}
-                              onCheckedChange={handleSelectAll}
-                            />
-                          </TableHead>
-                          <TableHead>
-                            <SortHeader column="orderNo" label="Order No" />
-                          </TableHead>
-                          <TableHead>
-                            <SortHeader
-                              column="orderDate"
-                              label="Order Date & Time"
-                            />
-                          </TableHead>
-                          <TableHead>
-                            <SortHeader
-                              column="shippingInfo.fullName"
-                              label="Customer"
-                            />
-                          </TableHead>
-                          <TableHead>
-                            <SortHeader
-                              column="shippingInfo.mobileNo"
-                              label="Mobile No"
-                            />
-                          </TableHead>
-                          <TableHead>Courier</TableHead>
-                          <TableHead>Courier Status</TableHead>
-                          <TableHead>
-                            <SortHeader column="orderStatus" label="Status" />
-                          </TableHead>
-                          <TableHead>
-                            <SortHeader column="orderSource" label="Source" />
-                          </TableHead>
-                          <TableHead>
-                            <SortHeader
-                              column="totalAmount"
-                              label="Total Amount"
-                            />
-                          </TableHead>
-                          <TableHead className="text-center w-[100px]">
-                            Actions
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {sortedOrders.map((order) => (
-                          <TableRow key={order._id}>
-                            <TableCell>
-                              <Checkbox
-                                checked={selectedOrders.includes(order._id)}
-                                onCheckedChange={() =>
-                                  handleSelectOrder(order._id)
-                                }
-                              />
-                            </TableCell>
-                            <TableCell className="font-medium">
-                              {order.orderNo}
-                            </TableCell>
-                            <TableCell>
-                              {order.createdAt
-                                ? new Date(order.createdAt).toLocaleString()
-                                : ''}
-                            </TableCell>
-                            <TableCell>
-                              {order.shippingInfo?.fullName ?? ''}
-                            </TableCell>
-                            <TableCell>
-                              {order.shippingInfo?.mobileNo ?? ''}
-                            </TableCell>
-                            <TableCell>
-                              <SendToCourierButton
-                                orderData={{
-                                  invoice: order.orderNo,
-                                  recipient_name: order.shippingInfo?.fullName,
-                                  recipient_phone: order.shippingInfo?.mobileNo,
-                                  recipient_address:
-                                    order.shippingInfo?.address,
-                                  cod_amount: order.dueAmount ?? 0,
-                                  note: order.note || '',
-                                  order_id: order._id,
-                                  courier_status: order.sentToCourier,
-                                  items: order.items?.length ?? 0,
-                                  courierProvider: order.courierProvider,
-                                }}
-                                onSuccess={handleSuccess}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <CourierSummary
-                                phone={order.shippingInfo?.mobileNo}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <OrderStatusSelector
-                                orderId={order._id}
-                                refetchOrders={fetchOrders}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={
-                                  order.orderSource === 'admin'
-                                    ? 'default'
-                                    : 'secondary'
-                                }
-                              >
-                                {order.orderSource === 'admin'
-                                  ? 'Admin'
-                                  : 'Web'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              Tk. {order.totalAmount?.toFixed(2)}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center justify-center gap-1">
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon-xs"
-                                      onClick={() => handleView(order._id)}
-                                    >
-                                      <Eye className="size-3.5" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>View</TooltipContent>
-                                </Tooltip>
-                                <RequirePermission
-                                  permission="delete_orders"
-                                  fallback={true}
-                                >
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon-xs"
-                                        onClick={() => {
-                                          setDeleteId(order._id);
-                                          setDeleteDialogOpen(true);
-                                        }}
-                                        className="text-destructive hover:text-destructive"
-                                      >
-                                        <Trash2 className="size-3.5" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Delete</TooltipContent>
-                                  </Tooltip>
-                                </RequirePermission>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="flex items-center justify-between bg-muted/30 rounded-lg p-3 mt-4">
-                <p className="text-sm text-muted-foreground">
-                  Showing {startEntry} to {endEntry} of {totalOrders} entries
-                  {searchQuery && ' (filtered)'}
-                </p>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={currentPage <= 1}
-                    onClick={() => handlePageChange(currentPage - 1)}
-                  >
-                    <ChevronLeft className="size-4" />
-                  </Button>
-                  {(() => {
-                    const pages = [];
-                    const delta = 1;
-                    const left = Math.max(2, currentPage - delta);
-                    const right = Math.min(totalPages - 1, currentPage + delta);
-                    pages.push(1);
-                    if (left > 2) pages.push('...');
-                    for (let i = left; i <= right; i++) pages.push(i);
-                    if (right < totalPages - 1) pages.push('...');
-                    if (totalPages > 1) pages.push(totalPages);
-                    return pages.map((p, i) =>
-                      p === '...' ? (
-                        <span
-                          key={`ellipsis-${i}`}
-                          className="px-1 text-muted-foreground"
-                        >
-                          ...
-                        </span>
-                      ) : (
-                        <Button
-                          key={p}
-                          variant={p === currentPage ? 'default' : 'ghost'}
-                          size="sm"
-                          className="min-w-9"
-                          disabled={orderListLoading}
-                          onClick={() => handlePageChange(p)}
-                        >
-                          {p}
-                        </Button>
-                      ),
-                    );
-                  })()}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={currentPage >= totalPages}
-                    onClick={() => handlePageChange(currentPage + 1)}
-                  >
-                    <ChevronRight className="size-4" />
-                  </Button>
-                </div>
+                  Bulk update status
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setBulkDeleteDialog(true)}
+                  className="h-11 sm:h-8"
+                >
+                  Bulk delete
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setBulkCourierDialog(true)}
+                  className="h-11 sm:h-8"
+                >
+                  Send to courier
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSelectedOrders([])}
+                  className="h-11 sm:h-8"
+                >
+                  Clear selection
+                </Button>
               </div>
             </div>
           )}
-        </>
+
+          <Card className="overflow-hidden border border-border/60 shadow-sm">
+            <CardContent className="p-0">
+              <div
+                id="orders-table"
+                role="region"
+                aria-label="Orders table"
+                tabIndex={0}
+                className="max-h-[60vh] overflow-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+              >
+                <Table className="min-w-[1180px]">
+                  <TableHeader>
+                    <TableRow className="sticky top-0 z-10 bg-background hover:bg-background">
+                      <TableHead className="h-12 w-12">
+                        <Checkbox
+                          checked={allSelected}
+                          onCheckedChange={handleSelectAll}
+                          aria-label={
+                            allSelected
+                              ? 'Deselect all orders'
+                              : 'Select all orders'
+                          }
+                          className="relative size-5 before:absolute before:-inset-3 before:content-['']"
+                        />
+                      </TableHead>
+                      <SortableHead
+                        column="orderNo"
+                        label="Order No"
+                        orderBy={orderBy}
+                        sortDirection={sortDirection}
+                        onSort={handleSortRequest}
+                      />
+                      <SortableHead
+                        column="orderDate"
+                        label="Order Date & Time"
+                        orderBy={orderBy}
+                        sortDirection={sortDirection}
+                        onSort={handleSortRequest}
+                      />
+                      <SortableHead
+                        column="shippingInfo.fullName"
+                        label="Customer"
+                        orderBy={orderBy}
+                        sortDirection={sortDirection}
+                        onSort={handleSortRequest}
+                      />
+                      <SortableHead
+                        column="shippingInfo.mobileNo"
+                        label="Mobile No"
+                        orderBy={orderBy}
+                        sortDirection={sortDirection}
+                        onSort={handleSortRequest}
+                      />
+                      <TableHead className="h-12 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Courier
+                      </TableHead>
+                      <TableHead className="h-12 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Courier Status
+                      </TableHead>
+                      <SortableHead
+                        column="orderStatus"
+                        label="Status"
+                        orderBy={orderBy}
+                        sortDirection={sortDirection}
+                        onSort={handleSortRequest}
+                      />
+                      <SortableHead
+                        column="orderSource"
+                        label="Source"
+                        orderBy={orderBy}
+                        sortDirection={sortDirection}
+                        onSort={handleSortRequest}
+                      />
+                      <SortableHead
+                        column="totalAmount"
+                        label="Total Amount"
+                        orderBy={orderBy}
+                        sortDirection={sortDirection}
+                        onSort={handleSortRequest}
+                        className="text-right"
+                      />
+                      <TableHead className="h-12 w-24 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Actions
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedOrders.map((order) => {
+                      const orderDate = order.createdAt || order.orderDate;
+                      const isSelected = selectedOrders.includes(order._id);
+
+                      return (
+                        <TableRow
+                          key={order._id}
+                          data-state={isSelected ? 'selected' : undefined}
+                          className="transition-colors hover:bg-muted/40 data-[state=selected]:bg-muted/60"
+                        >
+                          <TableCell>
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() =>
+                                handleSelectOrder(order._id)
+                              }
+                              aria-label={`Select order ${order.orderNo}`}
+                              className="relative size-5 before:absolute before:-inset-3 before:content-['']"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-mono text-sm font-medium tabular-nums">
+                              #{order.orderNo}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {orderDate ? (
+                              <div className="flex flex-col">
+                                <span className="text-sm">
+                                  {new Date(orderDate).toLocaleDateString(
+                                    undefined,
+                                    {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                    },
+                                  )}
+                                </span>
+                                <span className="text-xs tabular-nums text-muted-foreground">
+                                  {new Date(orderDate).toLocaleTimeString(
+                                    undefined,
+                                    {
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                    },
+                                  )}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">N/A</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="max-w-48">
+                            <span className="block truncate font-medium">
+                              {order.shippingInfo?.fullName || 'N/A'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="tabular-nums text-muted-foreground">
+                            {order.shippingInfo?.mobileNo || 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            <SendToCourierButton
+                              orderData={{
+                                invoice: order.orderNo,
+                                recipient_name: order.shippingInfo?.fullName,
+                                recipient_phone: order.shippingInfo?.mobileNo,
+                                recipient_address: order.shippingInfo?.address,
+                                cod_amount: order.dueAmount ?? 0,
+                                note: order.note || '',
+                                order_id: order._id,
+                                courier_status: order.sentToCourier,
+                                items: order.items?.length ?? 0,
+                                courierProvider: order.courierProvider,
+                              }}
+                              onSuccess={handleSuccess}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <CourierSummary
+                              phone={order.shippingInfo?.mobileNo}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <OrderStatusSelector
+                              orderId={order._id}
+                              initialStatus={order.orderStatus}
+                              refetchOrders={fetchOrders}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                order.orderSource === 'admin'
+                                  ? 'border-primary/20 bg-primary/5 text-primary'
+                                  : 'border-border bg-muted text-muted-foreground',
+                              )}
+                            >
+                              {order.orderSource === 'admin' ? 'Admin' : 'Web'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-medium tabular-nums">
+                            Tk. {formatAmount(order.totalAmount)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center justify-end gap-1">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleView(order._id)}
+                                    aria-label={`View order ${order.orderNo}`}
+                                    className="h-11 w-11 sm:h-9 sm:w-9"
+                                  >
+                                    <Eye
+                                      className="size-4"
+                                      aria-hidden="true"
+                                    />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>View</TooltipContent>
+                              </Tooltip>
+                              <RequirePermission
+                                permission="delete_orders"
+                                fallback={true}
+                              >
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => {
+                                        setDeleteId(order._id);
+                                        setDeleteDialogOpen(true);
+                                      }}
+                                      aria-label={`Delete order ${order.orderNo}`}
+                                      className="h-11 w-11 text-destructive hover:bg-destructive/10 hover:text-destructive sm:h-9 sm:w-9"
+                                    >
+                                      <Trash2
+                                        className="size-4"
+                                        aria-hidden="true"
+                                      />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Delete</TooltipContent>
+                                </Tooltip>
+                              </RequirePermission>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <p
+              className="text-sm tabular-nums text-muted-foreground"
+              aria-live="polite"
+            >
+              Showing {startEntry} to {endEntry} of {totalOrders} entries
+              {searchQuery && ' (filtered)'}
+            </p>
+            <nav
+              aria-label="Orders pagination"
+              className="flex items-center justify-center gap-1"
+            >
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Previous page"
+                disabled={currentPage <= 1}
+                onClick={() => handlePageChange(currentPage - 1)}
+                className="h-11 w-11 sm:h-9 sm:w-9"
+              >
+                <ChevronLeft className="size-4" aria-hidden="true" />
+              </Button>
+              {paginationItems.map((page, index) =>
+                page === '...' ? (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="px-1 text-muted-foreground"
+                    aria-hidden="true"
+                  >
+                    …
+                  </span>
+                ) : (
+                  <Button
+                    key={page}
+                    type="button"
+                    variant={page === currentPage ? 'default' : 'ghost'}
+                    size="icon"
+                    className="h-11 w-11 tabular-nums sm:h-9 sm:w-9"
+                    aria-label={`Page ${page}`}
+                    aria-current={page === currentPage ? 'page' : undefined}
+                    disabled={orderListLoading}
+                    onClick={() => handlePageChange(page)}
+                  >
+                    {page}
+                  </Button>
+                ),
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Next page"
+                disabled={currentPage >= totalPages}
+                onClick={() => handlePageChange(currentPage + 1)}
+                className="h-11 w-11 sm:h-9 sm:w-9"
+              >
+                <ChevronRight className="size-4" aria-hidden="true" />
+              </Button>
+            </nav>
+          </div>
+        </div>
       )}
 
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -1105,13 +1353,26 @@ const AllOrders = ({ title, status = '' }) => {
           </DialogHeader>
           <DialogFooter>
             <Button
+              type="button"
               variant="outline"
               onClick={() => setDeleteDialogOpen(false)}
+              disabled={deletingOrder}
+              className="h-11 sm:h-9"
             >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete}>
-              Delete
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={deletingOrder}
+              aria-busy={deletingOrder}
+              className="h-11 gap-2 sm:h-9"
+            >
+              {deletingOrder && (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              )}
+              {deletingOrder ? 'Deleting…' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1127,9 +1388,11 @@ const AllOrders = ({ title, status = '' }) => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
-            <label className="text-sm font-medium">New Status</label>
+            <label htmlFor="bulk-status" className="text-sm font-medium">
+              New Status
+            </label>
             <Select value={bulkNewStatus} onValueChange={setBulkNewStatus}>
-              <SelectTrigger>
+              <SelectTrigger id="bulk-status" className="h-11">
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
@@ -1144,24 +1407,25 @@ const AllOrders = ({ title, status = '' }) => {
           </div>
           <DialogFooter>
             <Button
+              type="button"
               variant="outline"
               onClick={() => setBulkUpdateDialog(false)}
               disabled={bulkUpdating}
+              className="h-11 sm:h-9"
             >
               Cancel
             </Button>
             <Button
+              type="button"
               onClick={handleBulkUpdate}
               disabled={!bulkNewStatus || bulkUpdating}
+              aria-busy={bulkUpdating}
+              className="h-11 gap-2 sm:h-9"
             >
-              {bulkUpdating ? (
-                <>
-                  <Loader2 className="size-4 mr-1 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                'Update'
+              {bulkUpdating && (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               )}
+              {bulkUpdating ? 'Updating…' : 'Update'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1179,25 +1443,26 @@ const AllOrders = ({ title, status = '' }) => {
           </DialogHeader>
           <DialogFooter>
             <Button
+              type="button"
               variant="outline"
               onClick={() => setBulkDeleteDialog(false)}
               disabled={bulkDeleting}
+              className="h-11 sm:h-9"
             >
               Cancel
             </Button>
             <Button
+              type="button"
               variant="destructive"
               onClick={handleBulkDelete}
               disabled={bulkDeleting}
+              aria-busy={bulkDeleting}
+              className="h-11 gap-2 sm:h-9"
             >
-              {bulkDeleting ? (
-                <>
-                  <Loader2 className="size-4 mr-1 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                'Delete'
+              {bulkDeleting && (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               )}
+              {bulkDeleting ? 'Deleting…' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1213,9 +1478,11 @@ const AllOrders = ({ title, status = '' }) => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
-            <label className="text-sm font-medium">Select Courier</label>
+            <label htmlFor="bulk-courier" className="text-sm font-medium">
+              Select Courier
+            </label>
             <Select value={selectedCourier} onValueChange={setSelectedCourier}>
-              <SelectTrigger>
+              <SelectTrigger id="bulk-courier" className="h-11">
                 <SelectValue placeholder="Select courier" />
               </SelectTrigger>
               <SelectContent>
@@ -1226,24 +1493,25 @@ const AllOrders = ({ title, status = '' }) => {
           </div>
           <DialogFooter>
             <Button
+              type="button"
               variant="outline"
               onClick={() => setBulkCourierDialog(false)}
               disabled={sendingToCourier}
+              className="h-11 sm:h-9"
             >
               Cancel
             </Button>
             <Button
+              type="button"
               onClick={handleBulkSendToCourier}
               disabled={!selectedCourier || sendingToCourier}
+              aria-busy={sendingToCourier}
+              className="h-11 gap-2 sm:h-9"
             >
-              {sendingToCourier ? (
-                <>
-                  <Loader2 className="size-4 mr-1 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                'Send'
+              {sendingToCourier && (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               )}
+              {sendingToCourier ? 'Sending…' : 'Send'}
             </Button>
           </DialogFooter>
         </DialogContent>

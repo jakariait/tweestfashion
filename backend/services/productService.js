@@ -43,9 +43,7 @@ const normalizeComboFields = (data) => {
     let ids = data.comboProducts;
     if (ids == null) ids = [];
     if (!Array.isArray(ids)) ids = [ids];
-    data.comboProducts = ids.filter((id) =>
-      mongoose.Types.ObjectId.isValid(id)
-    );
+    data.comboProducts = ids.filter((id) => mongoose.Types.ObjectId.isValid(id));
   }
 };
 
@@ -498,7 +496,7 @@ const getAllProducts = async ({
       .populate([
         { path: 'category', select: '-createdAt -updatedAt' },
         { path: 'flags', select: '-createdAt -updatedAt' },
-      { path: 'brand', select: '-createdAt -updatedAt' },
+        { path: 'brand', select: '-createdAt -updatedAt' },
         { path: 'variants.attributes.option', select: '-createdAt -updatedAt' },
         {
           path: 'comboProducts',
@@ -622,9 +620,7 @@ const updateProduct = async (productId, updatedData, files) => {
             _id: existingVariant._id,
             attributes: existingVariant.attributes,
             image:
-              variantData.image !== undefined
-                ? variantData.image
-                : existingVariant.image || '',
+              variantData.image !== undefined ? variantData.image : existingVariant.image || '',
             stock:
               variantData.stock !== undefined ? Number(variantData.stock) : existingVariant.stock,
             price:
@@ -676,9 +672,7 @@ const updateProduct = async (productId, updatedData, files) => {
     // belonging to variants that were removed. Shared names (same image on
     // several variants) survive until their last reference goes.
     if (Array.isArray(updatedData.variants)) {
-      const keptVariantImages = new Set(
-        updatedData.variants.map((v) => v.image).filter(Boolean),
-      );
+      const keptVariantImages = new Set(updatedData.variants.map((v) => v.image).filter(Boolean));
       oldVariantImages.forEach((oldImage) => {
         if (!keptVariantImages.has(oldImage)) {
           deleteOldFile(oldImage);
@@ -721,7 +715,7 @@ const getSimilarProducts = async (category, excludeId) => {
       .populate([
         { path: 'category', select: '-createdAt -updatedAt' },
         { path: 'flags', select: '-createdAt -updatedAt' },
-      { path: 'brand', select: '-createdAt -updatedAt' },
+        { path: 'brand', select: '-createdAt -updatedAt' },
         { path: 'variants.attributes.option', select: '-createdAt -updatedAt' },
       ]);
 
