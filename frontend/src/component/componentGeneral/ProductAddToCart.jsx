@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { FaPlus, FaArrowRight, FaXmark } from 'react-icons/fa6';
+import { useEffect, useRef, useState } from 'react';
+import { FaPlus, FaArrowRight } from 'react-icons/fa6';
 import { FiMinus } from 'react-icons/fi';
 import { FaTruck } from 'react-icons/fa';
 
@@ -8,97 +8,23 @@ import useCartStore from '../../store/useCartStore.js';
 import WishlistButton from './WishlistButton.jsx';
 import OrderByPhoneWhatsapp from './OrderByPhoneWhatsapp.jsx';
 import ProductBrand from '@/component/componentGeneral/ProductBrand.jsx';
-
-const resolveVariantSelection = (comboProduct, selections) => {
-  const variants = comboProduct?.variants || [];
-  if (variants.length === 0) return null;
-  const optionNames = Array.from(
-    new Set(
-      variants.flatMap(
-        (variant) =>
-          variant?.attributes
-            ?.map((attr) => attr?.option?.name)
-            .filter(Boolean) || [],
-      ),
-    ),
-  );
-  if (optionNames.some((name) => !selections?.[name])) return null;
-  return (
-    variants.find((variant) =>
-      optionNames.every((name) =>
-        variant?.attributes?.some(
-          (attr) =>
-            attr?.option?.name === name && attr.value === selections[name],
-        ),
-      ),
-    ) || null
-  );
-};
-
-// How many units of a variant's option value may be selected. Each option
-// value carries `numberOfProduct`; the most restrictive attribute wins.
-const getVariantProductLimit = (comboProduct, selections) => {
-  const variant = resolveVariantSelection(comboProduct, selections);
-  if (!variant) return Infinity;
-
-  let limit = Infinity;
-  variant.attributes?.forEach((attr) => {
-    const optionValues = attr?.option?.values || [];
-    const match = optionValues.find((value) =>
-      typeof value === 'object'
-        ? value?.value === attr.value
-        : value === attr.value,
-    );
-    if (match && typeof match === 'object') {
-      const count = Number(match.numberOfProduct);
-      if (Number.isFinite(count) && count > 0) {
-        limit = Math.min(limit, count);
-      }
-    }
-  });
-  return limit;
-};
-
-const getVariantLabel = (variant) =>
-  variant?.attributes
-    ?.map((attr) =>
-      attr?.option?.name
-        ? `${attr.option.name}: ${attr.value}`
-        : String(attr?.value ?? ''),
-    )
-    .filter(Boolean)
-    .join(' / ') || 'Default';
+import ComboProductSelector from './ComboProductSelector.jsx';
 
 const ProductAddToCart = ({ product }) => {
   const [quantity, setQuantity] = useState(1);
   const MAX_QUANTITY = 5; // Set the limit for Cart Quantity
   const { addToCart } = useCartStore();
   const navigate = useNavigate();
-  const apiUrl = import.meta.env.VITE_API_URL;
-  const imageUrl = `${apiUrl.replace('/api', '')}/uploads`;
 
   const [options, setOptions] = useState([]);
   const [selectedOptions, setSelectedOptions] = useState({});
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [validationMessage, setValidationMessage] = useState(''); // New state for validation messages
-  const [comboPicks, setComboPicks] = useState([]);
-  const [comboValidation, setComboValidation] = useState('');
-  const [comboPickerSlot, setComboPickerSlot] = useState(null);
-  const [comboPickerSearch, setComboPickerSearch] = useState('');
-  const [comboPickerProduct, setComboPickerProduct] = useState(null);
-
-  const comboItems = useMemo(
-    () =>
-      product?.isCombo && Array.isArray(product.comboProducts)
-        ? product.comboProducts.filter(
-            (comboProduct) =>
-              comboProduct &&
-              typeof comboProduct === 'object' &&
-              comboProduct._id,
-          )
-        : [],
-    [product],
-  );
+  const [comboState, setComboState] = useState({
+    availableStock: null,
+    stockOut: false,
+  });
+  const comboRef = useRef(null);
 
   // Effect 1: Initialize selectedOptions and handle single variant product auto-selection
   useEffect(() => {
@@ -119,42 +45,6 @@ const ProductAddToCart = ({ product }) => {
       setSelectedVariant(null);
     }
   }, [product]);
-
-  // How many products the selected combo pack allows (numberOfProduct on the
-  // combo product's own variant). Combos without pack variants include every
-  // bundled product once.
-  const comboPickCount = useMemo(() => {
-    if (!product?.isCombo || comboItems.length === 0) return 0;
-    if (product.variants?.length > 0) {
-      const limit = getVariantProductLimit(product, selectedOptions);
-      return Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 0;
-    }
-    return comboItems.length;
-  }, [product, comboItems, selectedOptions]);
-
-  const comboRequiredCount = Math.min(comboPickCount, comboItems.length);
-
-  // Combos without pack variants start with every bundled product selected;
-  // pack combos start with empty slots and the customer fills the permitted
-  // number of items.
-  useEffect(() => {
-    if (comboPickCount === 0) {
-      setComboPicks([]);
-      return;
-    }
-
-    setComboPicks(
-      product?.variants?.length > 0
-        ? Array.from({ length: comboRequiredCount }, () => null)
-        : comboItems.slice(0, comboRequiredCount).map((item) => ({
-            productId: item._id,
-            variantId: null,
-          })),
-    );
-    setComboPickerSlot(null);
-    setComboPickerProduct(null);
-    setComboValidation('');
-  }, [comboPickCount, comboRequiredCount, comboItems, product]);
 
   // Effect 2: Main logic for updating options and variant selection
   useEffect(() => {
@@ -280,204 +170,6 @@ const ProductAddToCart = ({ product }) => {
     setValidationMessage(''); // Clear message on selection change
   };
 
-  const openComboPicker = (slotIndex) => {
-    setComboPickerSlot(slotIndex);
-    setComboPickerSearch('');
-    setComboPickerProduct(null);
-    setComboValidation('');
-  };
-
-  const closeComboPicker = () => {
-    setComboPickerSlot(null);
-    setComboPickerSearch('');
-    setComboPickerProduct(null);
-  };
-
-  const handleComboPickSelect = (slotProduct, variant = null) => {
-    if (comboPickerSlot === null) return;
-    setComboPicks((prev) => {
-      const next = [...prev];
-      next[comboPickerSlot] = {
-        productId: slotProduct._id,
-        variantId: variant?._id || null,
-      };
-      return next;
-    });
-    closeComboPicker();
-  };
-
-  // Products with variants require an explicit variant choice before they are
-  // added to a combo slot; products without variants are added directly.
-  const handleComboPickerProductClick = (slotProduct) => {
-    if (slotProduct.variants?.length > 0) {
-      setComboPickerProduct(slotProduct);
-      return;
-    }
-    handleComboPickSelect(slotProduct, null);
-  };
-
-  const handleComboPickClear = (slotIndex) => {
-    setComboPicks((prev) => {
-      const next = [...prev];
-      next[slotIndex] = null;
-      return next;
-    });
-    setComboValidation('');
-  };
-
-  const handleComboPickVariantChange = (slotIndex, variantId) => {
-    setComboPicks((prev) => {
-      const next = [...prev];
-      if (next[slotIndex]) {
-        next[slotIndex] = { ...next[slotIndex], variantId };
-      }
-      return next;
-    });
-    setComboValidation('');
-  };
-
-  const getPickProduct = (pick) =>
-    comboItems.find((item) => String(item._id) === String(pick?.productId));
-
-  const getPickVariant = (pick, slotProduct) =>
-    slotProduct?.variants?.find(
-      (variant) => String(variant._id) === String(pick?.variantId),
-    ) || null;
-
-  // Combine identical product + variant picks into one cart line, since the
-  // customer may pick the same bundled product more than once.
-  const getComboSelectionsPayload = () => {
-    const grouped = new Map();
-
-    comboPicks.forEach((pick) => {
-      const slotProduct = getPickProduct(pick);
-      if (!slotProduct) return;
-
-      const variant = getPickVariant(pick, slotProduct);
-      if (slotProduct.variants?.length > 0 && !variant) return;
-
-      const variantId = variant?._id || null;
-      const key = `${slotProduct._id}:${variantId || 'Default'}`;
-      const existing = grouped.get(key);
-
-      if (existing) {
-        existing.quantity += 1;
-        return;
-      }
-
-      grouped.set(key, {
-        productId: slotProduct._id,
-        variantId,
-        name: slotProduct.name,
-        variant: getVariantLabel(variant),
-        quantity: 1,
-      });
-    });
-
-    return [...grouped.values()];
-  };
-
-  const validateComboSelection = () => {
-    if (!product?.isCombo || comboItems.length === 0) return true;
-
-    if (product.variants?.length > 0 && !selectedVariant) {
-      setComboValidation('Select a combo pack option first.');
-      return false;
-    }
-
-    if (comboPickCount === 0 || !comboPicks.some(Boolean)) {
-      setComboValidation('Select the products for this combo.');
-      return false;
-    }
-
-    const selectedPickCount = comboPicks.filter(Boolean).length;
-    if (selectedPickCount !== comboRequiredCount) {
-      setComboValidation(
-        `Select ${comboRequiredCount} product${comboRequiredCount > 1 ? 's' : ''} (${selectedPickCount} selected).`,
-      );
-      return false;
-    }
-
-    const counts = new Map();
-    for (let index = 0; index < comboPicks.length; index += 1) {
-      const pick = comboPicks[index];
-      const slotProduct = getPickProduct(pick);
-      if (!slotProduct) {
-        setComboValidation(`Choose a product for item ${index + 1}.`);
-        return false;
-      }
-
-      const variant = getPickVariant(pick, slotProduct);
-      if (slotProduct.variants?.length > 0 && !variant) {
-        setComboValidation(`Choose a variant for item ${index + 1}.`);
-        return false;
-      }
-
-      const key = `${slotProduct._id}:${variant?._id || 'Default'}`;
-      const existing = counts.get(key);
-      if (existing) {
-        existing.quantity += 1;
-      } else {
-        counts.set(key, { slotProduct, variant, quantity: 1 });
-      }
-    }
-
-    for (const { slotProduct, variant, quantity } of counts.values()) {
-      if (slotProduct.variants?.length > 0) {
-        if (!variant || variant.stock < quantity) {
-          const label = getVariantLabel(variant);
-          setComboValidation(
-            variant?.stock > 0
-              ? `Only ${variant.stock} left of ${slotProduct.name} (${label}).`
-              : `${slotProduct.name} (${label}) is out of stock.`,
-          );
-          return false;
-        }
-      } else if (Number(slotProduct.finalStock || 0) < quantity) {
-        setComboValidation(
-          Number(slotProduct.finalStock || 0) > 0
-            ? `Only ${slotProduct.finalStock} left for ${slotProduct.name}.`
-            : `${slotProduct.name} is out of stock.`,
-        );
-        return false;
-      }
-    }
-
-    setComboValidation('');
-    return true;
-  };
-
-  const comboAvailableStock = (() => {
-    if (!product?.isCombo || comboItems.length === 0) return null;
-    if (!comboPicks.some(Boolean)) return null;
-
-    const entries = getComboSelectionsPayload();
-    if (entries.length === 0) return null;
-
-    const availablePerEntry = entries.map((entry) => {
-      const comboProduct = comboItems.find(
-        (item) => String(item._id) === String(entry.productId),
-      );
-      if (!comboProduct) return 0;
-
-      if (entry.variantId) {
-        const variant = (comboProduct.variants || []).find(
-          (item) => String(item._id) === String(entry.variantId),
-        );
-        return variant
-          ? Math.floor(Number(variant.stock || 0) / entry.quantity)
-          : 0;
-      }
-      return Math.floor(Number(comboProduct.finalStock || 0) / entry.quantity);
-    });
-
-    return Math.min(...availablePerEntry);
-  })();
-
-  const comboSelectedCount = comboPicks.filter(Boolean).length;
-  const comboSelectionComplete =
-    comboRequiredCount > 0 && comboSelectedCount === comboRequiredCount;
-
   // Only report a stock-out once a real selection has been made. Before that
   // there is nothing to check, so the buttons stay actionable and validation
   // asks the customer to choose instead.
@@ -486,21 +178,11 @@ const ProductAddToCart = ({ product }) => {
     Boolean(selectedVariant) &&
     Number(selectedVariant.stock) === 0;
 
-  const comboStockOut =
-    product?.isCombo &&
-    comboItems.length > 0 &&
-    comboSelectionComplete &&
-    Number.isFinite(comboAvailableStock) &&
-    comboAvailableStock === 0;
-
-  const comboPickerItems = comboItems.filter((item) =>
-    String(item.name || '')
-      .toLowerCase()
-      .includes(comboPickerSearch.trim().toLowerCase()),
-  );
+  const comboStockOut = comboState.stockOut;
+  const comboAvailableStock = comboState.availableStock;
 
   const handleAddToCart = () => {
-    if (product.isCombo && !validateComboSelection()) return;
+    if (product.isCombo && !comboRef.current?.validate()) return;
 
     if (product.variants?.length > 0 && !selectedVariant) {
       const requiredOptions = options.map((o) => o.name);
@@ -518,7 +200,7 @@ const ProductAddToCart = ({ product }) => {
       product,
       quantity,
       selectedVariant,
-      product.isCombo ? getComboSelectionsPayload() : null,
+      product.isCombo ? comboRef.current?.getPayload() : null,
     );
     setValidationMessage(''); // Clear message on success
 
@@ -711,275 +393,12 @@ const ProductAddToCart = ({ product }) => {
         </div>
       ))}
 
-      {comboItems.length > 0 && (
-        <div className="space-y-3 rounded-xl border border-gray-200 p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="font-semibold uppercase tracking-wide primaryTextColor">
-              Build your combo
-            </h3>
-            {comboPickCount > 0 && (
-              <span className="rounded-full bg-[#F4FAF4] px-2.5 py-0.5 text-xs font-semibold text-[#2E7D31]">
-                {comboSelectedCount} / {comboRequiredCount} selected
-              </span>
-            )}
-          </div>
-
-          {product.variants?.length > 0 && !selectedVariant ? (
-            <p className="text-sm text-gray-500">
-              Select a combo pack option above to choose your products.
-            </p>
-          ) : (
-            <>
-              <p className="text-xs text-gray-500">
-                Pick {comboRequiredCount} product
-                {comboRequiredCount > 1 ? 's' : ''} from {comboItems.length}{' '}
-                available item{comboItems.length > 1 ? 's' : ''}.
-              </p>
-
-              <div className="grid grid-cols-1 gap-2 ">
-                {Array.from({ length: comboRequiredCount }).map(
-                  (_, slotIndex) => {
-                    const pick = comboPicks[slotIndex];
-                    const slotProduct = pick ? getPickProduct(pick) : null;
-
-                    if (!slotProduct) {
-                      return (
-                        <button
-                          key={slotIndex}
-                          type="button"
-                          onClick={() => openComboPicker(slotIndex)}
-                          className="flex min-h-[108px] flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-2 py-3 text-center transition-colors hover:border-[#2E7D31]/50 hover:bg-[#F4FAF4]"
-                        >
-                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#2E7D31] shadow-sm">
-                            <FaPlus className="text-xs" />
-                          </span>
-                          <span className="text-xs font-semibold text-gray-700">
-                            Select product
-                          </span>
-                          <span className="text-[10px] text-gray-400">
-                            Item {slotIndex + 1}
-                          </span>
-                        </button>
-                      );
-                    }
-
-                    return (
-                      <div
-                        key={slotIndex}
-                        className="flex min-h-[108px] flex-col rounded-lg border border-[#2E7D31]/40 bg-white p-2"
-                      >
-                        <div className="flex items-start gap-2">
-                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-gray-50">
-                            {slotProduct.thumbnailImage ? (
-                              <img
-                                src={`${imageUrl}/${slotProduct.thumbnailImage}`}
-                                alt={slotProduct.name}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : null}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                              Item {slotIndex + 1}
-                            </p>
-                            <p className="line-clamp-2 text-xs font-medium text-gray-900">
-                              {slotProduct.name}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleComboPickClear(slotIndex)}
-                            className="rounded-full p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-500"
-                            aria-label={`Remove item ${slotIndex + 1}`}
-                          >
-                            <FaXmark className="text-xs" />
-                          </button>
-                        </div>
-
-                        {slotProduct.variants?.length > 0 && (
-                          <select
-                            value={pick.variantId || ''}
-                            onChange={(e) =>
-                              handleComboPickVariantChange(
-                                slotIndex,
-                                e.target.value,
-                              )
-                            }
-                            className="mt-2 w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-900 focus:border-[#2E7D31] focus:outline-none"
-                          >
-                            <option value="" disabled>
-                              Select variant
-                            </option>
-                            {slotProduct.variants.map((itemVariant) => (
-                              <option
-                                key={itemVariant._id}
-                                value={itemVariant._id}
-                                disabled={Number(itemVariant.stock || 0) === 0}
-                              >
-                                {getVariantLabel(itemVariant)}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => openComboPicker(slotIndex)}
-                          className="mt-auto self-start pt-2 text-[11px] font-semibold text-[#2E7D31] underline-offset-2 hover:underline"
-                        >
-                          Change product
-                        </button>
-                      </div>
-                    );
-                  },
-                )}
-              </div>
-            </>
-          )}
-
-          {comboValidation && (
-            <p className="text-sm text-red-500">{comboValidation}</p>
-          )}
-        </div>
-      )}
-
-      {comboPickerSlot !== null && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Select a combo product"
-          onClick={closeComboPicker}
-        >
-          <div
-            className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3">
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-gray-900">
-                  {comboPickerProduct ? 'Select variant' : 'Select product'}
-                </h3>
-                <p className="truncate text-xs text-gray-500">
-                  {comboPickerProduct
-                    ? comboPickerProduct.name
-                    : `Item ${comboPickerSlot + 1} of ${comboRequiredCount}`}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-1">
-                {comboPickerProduct && (
-                  <button
-                    type="button"
-                    onClick={() => setComboPickerProduct(null)}
-                    className="rounded-full px-2.5 py-1.5 text-xs font-semibold text-[#2E7D31] transition-colors hover:bg-[#F4FAF4]"
-                  >
-                    Back
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={closeComboPicker}
-                  className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100"
-                  aria-label="Close product picker"
-                >
-                  <FaXmark />
-                </button>
-              </div>
-            </div>
-
-            {comboPickerProduct ? (
-              <div className="flex-1 overflow-y-auto px-4 py-3">
-                <p className="mb-2 text-xs text-gray-500">
-                  Choose a variant to add this product to your combo.
-                </p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {comboPickerProduct.variants?.map((itemVariant) => {
-                    const isVariantOutOfStock =
-                      Number(itemVariant.stock || 0) === 0;
-                    return (
-                      <button
-                        key={itemVariant._id}
-                        type="button"
-                        disabled={isVariantOutOfStock}
-                        onClick={() =>
-                          handleComboPickSelect(comboPickerProduct, itemVariant)
-                        }
-                        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-left text-xs font-medium text-gray-900 transition-colors hover:border-[#2E7D31]/60 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {getVariantLabel(itemVariant)}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <>
-                {/*<div className="px-4 py-2.5">*/}
-                {/*  <input*/}
-                {/*    type="search"*/}
-                {/*    autoFocus*/}
-                {/*    value={comboPickerSearch}*/}
-                {/*    onChange={(e) => setComboPickerSearch(e.target.value)}*/}
-                {/*    placeholder="Search products..."*/}
-                {/*    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#2E7D31] focus:outline-none"*/}
-                {/*  />*/}
-                {/*</div>*/}
-
-                <div className="grid flex-1 grid-cols-2 gap-2 overflow-y-auto px-4 pb-4 sm:grid-cols-3">
-                  {comboPickerItems.map((item) => {
-                    const isOutOfStock =
-                      item.variants?.length > 0
-                        ? !item.variants.some(
-                            (itemVariant) => Number(itemVariant.stock || 0) > 0,
-                          )
-                        : Number(item.finalStock || 0) === 0;
-
-                    return (
-                      <button
-                        key={item._id}
-                        type="button"
-                        disabled={isOutOfStock}
-                        onClick={() => handleComboPickerProductClick(item)}
-                        className="group overflow-hidden rounded-lg border border-gray-200 bg-white text-left transition-colors hover:border-[#2E7D31]/60 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <div className=" w-full overflow-hidden bg-gray-50">
-                          {item.thumbnailImage ? (
-                            <img
-                              src={`${imageUrl}/${item.thumbnailImage}`}
-                              alt={item.name}
-                              className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                            />
-                          ) : null}
-                        </div>
-                        <div className="space-y-1 p-2">
-                          <p className="line-clamp-2 break-words text-xs font-medium text-gray-900">
-                            {item.name}
-                          </p>
-                          {isOutOfStock ? (
-                            <p className="text-[10px] font-semibold uppercase text-red-500">
-                              Out of stock
-                            </p>
-                          ) : item.variants?.length > 0 ? (
-                            <p className="text-[10px] font-semibold uppercase text-[#2E7D31]">
-                              Select variant
-                            </p>
-                          ) : null}
-                        </div>
-                      </button>
-                    );
-                  })}
-
-                  {comboPickerItems.length === 0 && (
-                    <p className="col-span-full py-6 text-center text-sm text-gray-500">
-                      No products found.
-                    </p>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <ComboProductSelector
+        ref={comboRef}
+        product={product}
+        selectedVariant={selectedVariant}
+        onChange={setComboState}
+      />
 
       {/* Quantity + Cart */}
       <div className="flex flex-wrap gap-2.5 md:gap-3 items-center mt-1">
@@ -1043,7 +462,7 @@ const ProductAddToCart = ({ product }) => {
           type="button"
           className="group relative w-full overflow-hidden primaryBgColor accentTextColor rounded-xl px-4 py-3 md:py-3.5 cursor-pointer text-left transition-transform duration-200 active:scale-[0.98] animate-cod-glow"
           onClick={() => {
-            if (product.isCombo && !validateComboSelection()) return;
+            if (product.isCombo && !comboRef.current?.validate()) return;
 
             if (product.variants?.length > 0 && !selectedVariant) {
               const requiredOptions = options.map((o) => o.name);
@@ -1061,7 +480,7 @@ const ProductAddToCart = ({ product }) => {
               product,
               quantity,
               selectedVariant,
-              product.isCombo ? getComboSelectionsPayload() : null,
+              product.isCombo ? comboRef.current?.getPayload() : null,
             );
             navigate('/checkout');
             setValidationMessage('');

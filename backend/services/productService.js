@@ -838,13 +838,22 @@ const getHomePageProducts = async () => {
         .sort({ createdAt: -1 }) // Sort products by newest first
 
         .select(
-          'name slug finalDiscount finalPrice finalStock thumbnailImage isActive images productId category variants flags freeShipping'
+          'name slug finalDiscount finalPrice finalStock thumbnailImage isActive images productId category variants flags brand freeShipping isCombo comboProducts'
         )
         .populate([
           { path: 'category', select: '-createdAt -updatedAt' },
           { path: 'flags', select: '-createdAt -updatedAt' },
-      { path: 'brand', select: '-createdAt -updatedAt' },
+          { path: 'brand', select: '-createdAt -updatedAt' },
           { path: 'variants.attributes.option', select: '-createdAt -updatedAt' },
+          {
+            path: 'comboProducts',
+            select:
+              'name slug productId finalPrice finalDiscount finalStock thumbnailImage isActive variants',
+            populate: {
+              path: 'variants.attributes.option',
+              select: 'name values',
+            },
+          },
         ]);
 
       result[flag.name] = products;

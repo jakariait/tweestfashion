@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import useProductStore from '../../store/useProductStore.js';
 import useFlagStore from '../../store/useFlagStore.js';
@@ -60,12 +60,12 @@ const ProductByFlag = () => {
 
         return (
           <div key={flag._id} className={'mb-5'}>
-            <div className="flex items-center gap-4 my-6">
-              <div className="flex-grow h-px bg-gray-400"></div>
-              <h2 className="text-lg pl-10 pr-10 font-bold secondaryTextColor whitespace-nowrap uppercase tracking-widest">
+            <div className="flex items-center gap-2 my-4 sm:gap-4 sm:my-6">
+              <div className="h-px flex-grow bg-gray-400"></div>
+              <h2 className="max-w-[75%] text-center text-sm font-bold uppercase leading-snug tracking-wider secondaryTextColor sm:max-w-none sm:text-lg sm:tracking-widest md:px-10">
                 {flag.name}
               </h2>
-              <div className="flex-grow h-px bg-gray-400"></div>
+              <div className="h-px flex-grow bg-gray-400"></div>
             </div>
 
             {/* ✅ Render once with sliced products */}
